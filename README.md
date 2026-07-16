@@ -36,7 +36,7 @@ const session = await composio.create("user_1", {
 const tools = await session.tools();
 const out = await session.execute("LOCAL_SCAVIO_GOOGLE_SEARCH", {
   query: "best search API for AI agents",
-  light_request: true,
+  countryCode: "us",
 });
 console.log(out);
 ```
@@ -49,7 +49,7 @@ All tools are grouped under the `SCAVIO` custom toolkit; agent-facing slugs are 
 
 ## Credits
 
-Most endpoints cost 1 credit. Reddit and Instagram cost 2 credits each. Google costs 2 credits unless `light_request: true` (1 credit). See [scavio.dev/docs](https://scavio.dev/docs).
+Most endpoints cost 1 credit, including Google. Reddit and Instagram cost 2 credits each. See [scavio.dev/docs](https://scavio.dev/docs).
 
 ## Links
 
