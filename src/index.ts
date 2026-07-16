@@ -43,6 +43,26 @@ const ostr = (d: string) => z.string().optional().describe(d);
 const onum = (d: string) => z.number().optional().describe(d);
 const obool = (d: string) => z.boolean().optional().describe(d);
 
+interface GoogleSearchArgs {
+  query: string;
+  countryCode?: string;
+  language?: string;
+  page?: number;
+  device?: string;
+  nfpr?: boolean;
+}
+
+/** Map the public Google args to the v2 SERP wire params the SDK expects. */
+function googleSearchParams(i: GoogleSearchArgs): { query: string; [key: string]: unknown } {
+  const params: { query: string; [key: string]: unknown } = { query: i.query };
+  if (i.countryCode != null) params.gl = i.countryCode;
+  if (i.language != null) params.hl = i.language;
+  if (i.page != null && i.page > 1) params.start = (i.page - 1) * 10;
+  if (i.device != null) params.device = i.device;
+  if (i.nfpr != null) params.nfpr = i.nfpr;
+  return params;
+}
+
 /**
  * Build a Composio custom toolkit exposing Scavio search tools.
  *
@@ -87,18 +107,16 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
       tool(
         "GOOGLE_SEARCH",
         "Scavio Google Search",
-        "Search Google for real-time web results (organic, knowledge graph, news, and more).",
+        "Search Google for real-time web results (organic_results, ads, and the AI Overview when present). Costs 1 credit.",
         z.object({
           query: str("The search query."),
-          country_code: ostr("Two-letter country code, e.g. 'us'."),
+          countryCode: ostr("Two-letter country code, e.g. 'us'."),
           language: ostr("Two-letter language code, e.g. 'en'."),
           page: onum("Result page number (1-based)."),
-          search_type: ostr("Search vertical, e.g. 'search', 'news', 'images'."),
           device: ostr("Device profile: 'desktop' or 'mobile'."),
           nfpr: obool("Disable auto-correction of the query when true."),
-          light_request: obool("Cheaper, lighter response (1 credit instead of 2) when true."),
         }),
-        (i) => client.google.search(i)
+        (i) => client.google.search(googleSearchParams(i))
       )
     );
   }
