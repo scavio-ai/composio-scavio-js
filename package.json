@@ -51,7 +51,7 @@
   },
   "dependencies": {
     "@composio/core": "^0.13.1",
-    "scavio": "^0.4.0",
+    "scavio": "^0.5.0",
     "zod": "^3.25.0"
   },
   "devDependencies": {
