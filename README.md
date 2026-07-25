@@ -45,11 +45,11 @@ Pass `all: true` to register every tool regardless of the individual flags.
 
 ## Tools
 
-All tools are grouped under the `SCAVIO` custom toolkit; agent-facing slugs are prefixed `LOCAL_SCAVIO_` (Composio convention for custom tools). Providers: Google, Amazon (search, product), Walmart (search, product), YouTube (search, metadata), Reddit (search, post), TikTok (11 tools), Instagram (12 tools). 32 tools total.
+All tools are grouped under the `SCAVIO` custom toolkit; agent-facing slugs are prefixed `LOCAL_SCAVIO_` (Composio convention for custom tools). Providers: Google, Amazon (search, product), Walmart (search, product), YouTube (16 tools: search, shorts, suggestions, video, metadata, comments, comment replies, transcript, related, channel search, channel, channel videos, channel shorts, channel community, channel resolve, streams), Reddit (search, post), TikTok (11 tools), Instagram (12 tools). 46 tools total.
 
 ## Credits
 
-Most endpoints cost 1 credit, including Google. Reddit and Instagram cost 2 credits each. See [scavio.dev/docs](https://scavio.dev/docs).
+Most endpoints cost 1 credit, including Google. Reddit and Instagram cost 2 credits each. YouTube search and shorts cost 2, YouTube streams 3, and YouTube transcript 8. See [scavio.dev/docs](https://scavio.dev/docs).
 
 ## Links
 

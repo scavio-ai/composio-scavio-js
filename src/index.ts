@@ -43,6 +43,12 @@ const ostr = (d: string) => z.string().optional().describe(d);
 const onum = (d: string) => z.number().optional().describe(d);
 const obool = (d: string) => z.boolean().optional().describe(d);
 
+// The Scavio SDK types several option fields as string-literal unions (e.g.
+// sort orders, device profiles). Tool schemas keep them as free-form strings so
+// the agent stays flexible and the API validates the value; this extracts an SDK
+// method's options type so a validated input can be handed through unchanged.
+type SdkOpts<M> = M extends (o: infer O) => unknown ? O : never;
+
 interface GoogleSearchArgs {
   query: string;
   countryCode?: string;
@@ -142,7 +148,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
           zip_code: ostr("Delivery ZIP/postal code."),
           autoselect_variant: obool("Auto-select the best product variant when true."),
         }),
-        (i) => client.amazon.search(i)
+        (i) => client.amazon.search(i as SdkOpts<typeof client.amazon.search>)
       ),
       tool(
         "AMAZON_PRODUCT",
@@ -158,7 +164,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
           zip_code: ostr("Delivery ZIP/postal code."),
           autoselect_variant: obool("Auto-select the best product variant when true."),
         }),
-        (i) => client.amazon.product(i)
+        (i) => client.amazon.product(i as SdkOpts<typeof client.amazon.product>)
       )
     );
   }
@@ -182,7 +188,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
           delivery_zip: ostr("Delivery ZIP/postal code."),
           store_id: ostr("Restrict to a store id."),
         }),
-        (i) => client.walmart.search(i)
+        (i) => client.walmart.search(i as SdkOpts<typeof client.walmart.search>)
       ),
       tool(
         "WALMART_PRODUCT",
@@ -195,7 +201,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
           delivery_zip: ostr("Delivery ZIP/postal code."),
           store_id: ostr("Restrict to a store id."),
         }),
-        (i) => client.walmart.product(i)
+        (i) => client.walmart.product(i as SdkOpts<typeof client.walmart.product>)
       )
     );
   }
@@ -205,26 +211,160 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
       tool(
         "YOUTUBE_SEARCH",
         "Scavio YouTube Search",
-        "Search YouTube for videos, channels, or playlists.",
+        "Search YouTube for videos, channels, or playlists. Costs 2 credits.",
         z.object({
           query: str("The video search query."),
-          upload_date: ostr("Upload date filter, e.g. 'today', 'week', 'month'."),
-          type: ostr("Result type, e.g. 'video', 'channel', 'playlist'."),
-          duration: ostr("Duration filter, e.g. 'short', 'long'."),
-          sort_by: ostr("Sort order for results."),
+          upload_date: ostr("Upload date filter: 'last_hour', 'today', 'this_week', 'this_month', 'this_year'."),
+          type: ostr("Result type: 'video', 'channel', 'playlist', or 'movie'."),
+          duration: ostr("Duration filter: 'short', 'medium', or 'long'."),
+          sort_by: ostr("Sort order: 'relevance', 'date', 'view_count', or 'rating'."),
+          features: z.array(z.string()).optional().describe("Feature filters, e.g. ['hd', '4k', 'subtitles', 'creative_commons', 'live', '360', '3d', 'hdr', 'vr180']."),
+          cursor: ostr("Pagination cursor from a prior response."),
           hd: obool("Restrict to HD videos when true."),
           subtitles: obool("Restrict to videos with subtitles when true."),
           creative_commons: obool("Restrict to Creative Commons videos when true."),
           live: obool("Restrict to live videos when true."),
         }),
-        (i) => client.youtube.search(i)
+        (i) => client.youtube.search(i as SdkOpts<typeof client.youtube.search>)
+      ),
+      tool(
+        "YOUTUBE_SHORTS",
+        "Scavio YouTube Shorts",
+        "Search YouTube Shorts. Costs 2 credits.",
+        z.object({
+          query: str("The Shorts search query."),
+          sort_by: ostr("Sort order: 'relevance', 'date', 'view_count', or 'rating'."),
+          cursor: ostr("Pagination cursor from a prior response."),
+        }),
+        (i) => client.youtube.shorts(i as SdkOpts<typeof client.youtube.shorts>)
+      ),
+      tool(
+        "YOUTUBE_SUGGESTIONS",
+        "Scavio YouTube Suggestions",
+        "Get YouTube search autocomplete suggestions for a partial query. Costs 1 credit.",
+        z.object({
+          query: str("The partial query to autocomplete."),
+          language: ostr("Suggestion language (ISO 639-1, default 'en')."),
+          region: ostr("Region code (ISO 3166-1 alpha-2, default 'US')."),
+        }),
+        (i) => client.youtube.suggestions(i)
+      ),
+      tool(
+        "YOUTUBE_VIDEO",
+        "Scavio YouTube Video",
+        "Fetch full metadata for a YouTube video by id or watch URL. Costs 1 credit.",
+        z.object({ video_id: str("YouTube video id or a full watch URL.") }),
+        (i) => client.youtube.video(i)
       ),
       tool(
         "YOUTUBE_METADATA",
         "Scavio YouTube Metadata",
-        "Fetch metadata for a YouTube video by id.",
-        z.object({ video_id: str("YouTube video id.") }),
+        "Fetch metadata for a YouTube video by id. Deprecated alias of YOUTUBE_VIDEO.",
+        z.object({ video_id: str("YouTube video id or a full watch URL.") }),
         (i) => client.youtube.metadata(i)
+      ),
+      tool(
+        "YOUTUBE_COMMENTS",
+        "Scavio YouTube Comments",
+        "List top-level comments on a YouTube video. Costs 1 credit.",
+        z.object({
+          video_id: str("YouTube video id or a full watch URL."),
+          cursor: ostr("Pagination cursor from a prior response."),
+        }),
+        (i) => client.youtube.comments(i)
+      ),
+      tool(
+        "YOUTUBE_COMMENT_REPLIES",
+        "Scavio YouTube Comment Replies",
+        "List replies to a YouTube comment using its reply cursor. Costs 1 credit.",
+        z.object({
+          video_id: str("YouTube video id or a full watch URL."),
+          reply_cursor: str("Reply cursor from a parent comment's 'reply_cursor' field."),
+          cursor: ostr("Pagination cursor from a prior response."),
+        }),
+        (i) => client.youtube.commentReplies(i)
+      ),
+      tool(
+        "YOUTUBE_TRANSCRIPT",
+        "Scavio YouTube Transcript",
+        "Fetch the transcript or timed captions for a YouTube video. Costs 8 credits.",
+        z.object({
+          video_id: str("YouTube video id or a full watch URL."),
+          language: ostr("Caption language code (default 'en')."),
+          format: ostr("'text' for a plain transcript or 'srt' for timed subtitles (default 'text')."),
+        }),
+        (i) => client.youtube.transcript(i as SdkOpts<typeof client.youtube.transcript>)
+      ),
+      tool(
+        "YOUTUBE_RELATED",
+        "Scavio YouTube Related",
+        "List videos related to a YouTube video. Costs 1 credit.",
+        z.object({
+          video_id: str("YouTube video id or a full watch URL."),
+          cursor: ostr("Pagination cursor from a prior response."),
+        }),
+        (i) => client.youtube.related(i)
+      ),
+      tool(
+        "YOUTUBE_CHANNEL_SEARCH",
+        "Scavio YouTube Channel Search",
+        "Search YouTube channels by keyword. Costs 1 credit.",
+        z.object({
+          query: str("The channel search query."),
+          cursor: ostr("Pagination cursor from a prior response."),
+        }),
+        (i) => client.youtube.channelSearch(i)
+      ),
+      tool(
+        "YOUTUBE_CHANNEL",
+        "Scavio YouTube Channel",
+        "Fetch YouTube channel details by id, @handle, or URL. Costs 1 credit.",
+        z.object({ channel_id: str("YouTube channel id, @handle, or channel URL.") }),
+        (i) => client.youtube.channel(i)
+      ),
+      tool(
+        "YOUTUBE_CHANNEL_VIDEOS",
+        "Scavio YouTube Channel Videos",
+        "List videos uploaded by a YouTube channel. Costs 1 credit.",
+        z.object({
+          channel_id: str("YouTube channel id."),
+          cursor: ostr("Pagination cursor from a prior response."),
+        }),
+        (i) => client.youtube.channelVideos(i)
+      ),
+      tool(
+        "YOUTUBE_CHANNEL_SHORTS",
+        "Scavio YouTube Channel Shorts",
+        "List Shorts posted by a YouTube channel. Costs 1 credit.",
+        z.object({
+          channel_id: str("YouTube channel id."),
+          cursor: ostr("Pagination cursor from a prior response."),
+        }),
+        (i) => client.youtube.channelShorts(i)
+      ),
+      tool(
+        "YOUTUBE_CHANNEL_COMMUNITY",
+        "Scavio YouTube Channel Community",
+        "List community posts from a YouTube channel. Costs 1 credit.",
+        z.object({
+          channel_id: str("YouTube channel id."),
+          cursor: ostr("Pagination cursor from a prior response."),
+        }),
+        (i) => client.youtube.channelCommunity(i)
+      ),
+      tool(
+        "YOUTUBE_CHANNEL_RESOLVE",
+        "Scavio YouTube Channel Resolve",
+        "Resolve a YouTube @handle or channel URL to a channel id. Costs 1 credit.",
+        z.object({ channel: str("A channel @handle or channel URL to resolve to a channel id.") }),
+        (i) => client.youtube.channelResolve(i)
+      ),
+      tool(
+        "YOUTUBE_STREAMS",
+        "Scavio YouTube Streams",
+        "Fetch playable or downloadable stream formats for a YouTube video. Costs 3 credits.",
+        z.object({ video_id: str("YouTube video id or a full watch URL.") }),
+        (i) => client.youtube.streams(i)
       )
     );
   }
@@ -241,7 +381,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
           sort: ostr("Sort order, e.g. 'relevance', 'new', 'top'."),
           cursor: ostr("Pagination cursor."),
         }),
-        (i) => client.reddit.search(i)
+        (i) => client.reddit.search(i as SdkOpts<typeof client.reddit.search>)
       ),
       tool(
         "REDDIT_POST",
@@ -275,7 +415,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
           count: onum("Number of posts to return."),
           sort_type: ostr("Sort order for posts."),
         }),
-        (i) => client.tiktok.userPosts(i)
+        (i) => client.tiktok.userPosts(i as SdkOpts<typeof client.tiktok.userPosts>)
       ),
       tool(
         "TIKTOK_VIDEO",
@@ -318,7 +458,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
           sort_type: ostr("Sort order for results."),
           publish_time: ostr("Publish-time filter."),
         }),
-        (i) => client.tiktok.searchVideos(i)
+        (i) => client.tiktok.searchVideos(i as SdkOpts<typeof client.tiktok.searchVideos>)
       ),
       tool(
         "TIKTOK_SEARCH_USERS",
@@ -458,7 +598,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
           cursor: ostr("Pagination cursor."),
           sort_order: ostr("Comment sort order."),
         }),
-        (i) => client.instagram.postComments(i)
+        (i) => client.instagram.postComments(i as SdkOpts<typeof client.instagram.postComments>)
       ),
       tool(
         "INSTAGRAM_COMMENT_REPLIES",
