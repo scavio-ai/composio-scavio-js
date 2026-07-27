@@ -49,7 +49,7 @@ All tools are grouped under the `SCAVIO` custom toolkit; agent-facing slugs are 
 
 ## Credits
 
-Most endpoints cost 1 credit, including Google. Reddit and Instagram cost 2 credits each. YouTube search and shorts cost 2, YouTube streams 3, and YouTube transcript 8. See [scavio.dev/docs](https://scavio.dev/docs).
+Most endpoints cost 1 credit, including Google. Instagram costs 8-10 credits per call per endpoint, except user posts which costs 2. YouTube search and shorts cost 2, YouTube streams 3, and YouTube transcript 8. See [scavio.dev/docs](https://scavio.dev/docs).
 
 ## Links
 
