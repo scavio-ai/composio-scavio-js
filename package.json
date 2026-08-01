@@ -1,6 +1,6 @@
 {
   "name": "composio-scavio",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Scavio real-time search tools for Composio (Google, YouTube, Amazon, Walmart, Reddit, TikTok, Instagram)",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -51,7 +51,7 @@
   },
   "dependencies": {
     "@composio/core": "^0.13.1",
-    "scavio": "^0.5.0",
+    "scavio": "^0.12.0",
     "zod": "^3.25.0"
   },
   "devDependencies": {
