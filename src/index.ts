@@ -1,9 +1,10 @@
 /**
  * Scavio tools for Composio.
  *
- * Exposes the Scavio search API (Google, YouTube, Amazon, Walmart, Reddit, TikTok,
- * Instagram) as a Composio custom toolkit. Build it with `buildScavioToolkit()` and
- * bind it to a session:
+ * Scavio is a single Search API over Google, YouTube, Amazon, Walmart, Reddit, TikTok,
+ * TikTok Shop, Instagram, X and LinkedIn. This toolkit exposes the Google, YouTube,
+ * Amazon, Walmart, Reddit, TikTok and Instagram endpoints as a Composio custom toolkit.
+ * Build it with `buildScavioToolkit()` and bind it to a session:
  *
  *   import { Composio } from "@composio/core";
  *   import { buildScavioToolkit } from "@scavio/composio";
@@ -73,7 +74,8 @@ function googleSearchParams(i: GoogleSearchArgs): { query: string; [key: string]
  * Build a Composio custom toolkit exposing Scavio search tools.
  *
  * Scavio is a single Search API over Google, YouTube, Amazon, Walmart, Reddit,
- * TikTok, and Instagram. Pass to `composio.create(userId, { experimental:
+ * TikTok, TikTok Shop, Instagram, X and LinkedIn; this toolkit covers the first
+ * seven. Pass to `composio.create(userId, { experimental:
  * { customToolkits: [toolkit] } })`. Agent-facing slugs are prefixed `LOCAL_SCAVIO_`.
  */
 export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
@@ -137,7 +139,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
       tool(
         "AMAZON_SEARCH",
         "Scavio Amazon Search",
-        "Search Amazon for products matching a query. Results are unsorted and cannot be filtered by category, merchant or price.",
+        "Search Amazon for products matching a query. Results are unsorted and cannot be filtered by category, merchant or price. Costs 1 credit.",
         z.object({
           query: str("The product search query."),
           country: ostr("Marketplace country code (ISO 3166-1 alpha-2), not a domain: 'us' (default), 'gb' (the UK is gb, not uk), 'ca', 'de', 'fr', 'es', 'it', 'jp', 'in', 'au', 'br', 'mx', 'nl', 'pl', 'se', 'sg', 'ae', 'sa', 'eg', 'cn', 'be', 'tr'. An unknown code falls back to us."),
@@ -148,7 +150,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
       tool(
         "AMAZON_PRODUCT",
         "Scavio Amazon Product",
-        "Fetch full Amazon product details by ASIN. price is the buy-box price only.",
+        "Fetch full Amazon product details by ASIN. price is the buy-box price only. Costs 1 credit.",
         z.object({
           asin: str("Amazon Standard Identification Number (ASIN) of the product."),
           country: ostr("Marketplace country code (ISO 3166-1 alpha-2), not a domain: 'us' (default), 'gb' (the UK is gb, not uk), 'ca', 'de', 'fr', 'es', 'it', 'jp', 'in', 'au', 'br', 'mx', 'nl', 'pl', 'se', 'sg', 'ae', 'sa', 'eg', 'cn', 'be', 'tr'. An unknown code falls back to us."),
@@ -158,7 +160,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
       tool(
         "AMAZON_OFFERS",
         "Scavio Amazon Offers",
-        "List every seller offer for one Amazon ASIN: price, seller, condition, shipping, and which offer holds the buy box. Page 1 only. Use this instead of AMAZON_PRODUCT when comparing sellers or checking who owns the buy box.",
+        "List every seller offer for one Amazon ASIN: price, seller, condition, shipping, and which offer holds the buy box. Page 1 only. Use this instead of AMAZON_PRODUCT when comparing sellers or checking who owns the buy box. Costs 1 credit.",
         z.object({
           asin: str("Amazon Standard Identification Number (ASIN) of the product."),
           country: ostr("Marketplace country code (ISO 3166-1 alpha-2), not a domain: 'us' (default), 'gb' (the UK is gb, not uk), 'ca', 'de', 'fr', 'es', 'it', 'jp', 'in', 'au', 'br', 'mx', 'nl', 'pl', 'se', 'sg', 'ae', 'sa', 'eg', 'cn', 'be', 'tr'. An unknown code falls back to us."),
@@ -173,7 +175,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
       tool(
         "WALMART_SEARCH",
         "Scavio Walmart Search",
-        "Search Walmart for products matching a query.",
+        "Search Walmart for products matching a query. Costs 1 credit.",
         z.object({
           query: str("The product search query."),
           domain: ostr("Walmart domain."),
@@ -192,7 +194,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
       tool(
         "WALMART_PRODUCT",
         "Scavio Walmart Product",
-        "Fetch full Walmart product details by product id.",
+        "Fetch full Walmart product details by product id. Costs 1 credit.",
         z.object({
           product_id: str("Walmart product id."),
           domain: ostr("Walmart domain."),
@@ -368,25 +370,26 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
     );
   }
 
+  // /reddit/search takes ONLY query + cursor. `type` and `sort` were never real:
+  // the API strips unknown fields, so they filtered nothing while making the agent
+  // believe the result set was narrowed. Removed rather than kept as no-ops.
   if (all || enableReddit) {
     tools.push(
       tool(
         "REDDIT_SEARCH",
         "Scavio Reddit Search",
-        "Search Reddit posts, subreddits, or users.",
+        "Search Reddit posts. Returns data.results with next_cursor and has_more; page with cursor. Results cannot be filtered or sorted. Costs 1 credit.",
         z.object({
           query: str("The Reddit search query."),
-          type: ostr("Search type, e.g. 'posts', 'subreddits', 'users'."),
-          sort: ostr("Sort order, e.g. 'relevance', 'new', 'top'."),
-          cursor: ostr("Pagination cursor."),
+          cursor: ostr("Pagination cursor: pass 'next_cursor' from a prior response."),
         }),
         (i) => client.reddit.search(i as SdkOpts<typeof client.reddit.search>)
       ),
       tool(
         "REDDIT_POST",
         "Scavio Reddit Post",
-        "Fetch a Reddit post and its comment thread by URL.",
-        z.object({ url: str("Full URL of the Reddit post to fetch with its comments.") }),
+        "Fetch one Reddit post by URL. Returns a flat post object under data (post_id, title, text, url, subreddit, author, score, upvote_ratio, num_comments, created_at, is_nsfw, is_video, thumbnail, media); comments are NOT included. Costs 1 credit.",
+        z.object({ url: str("Full URL of the Reddit post.") }),
         (i) => client.reddit.post(i)
       )
     );
@@ -397,7 +400,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
       tool(
         "TIKTOK_PROFILE",
         "Scavio TikTok Profile",
-        "Fetch a TikTok user profile by username or secUid.",
+        "Fetch a TikTok user profile by username or secUid. Costs 1 credit.",
         z.object({
           username: ostr("TikTok username (without @). Provide this or sec_user_id."),
           sec_user_id: ostr("TikTok secUid. Provide this or username."),
@@ -407,7 +410,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
       tool(
         "TIKTOK_USER_POSTS",
         "Scavio TikTok User Posts",
-        "List a TikTok user's posts by secUid.",
+        "List a TikTok user's posts by secUid. Costs 1 credit.",
         z.object({
           sec_user_id: str("TikTok secUid of the user."),
           cursor: ostr("Pagination cursor."),
@@ -419,14 +422,14 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
       tool(
         "TIKTOK_VIDEO",
         "Scavio TikTok Video",
-        "Fetch a TikTok video by id.",
+        "Fetch a TikTok video by id. Costs 1 credit.",
         z.object({ video_id: str("TikTok video id.") }),
         (i) => client.tiktok.video(i)
       ),
       tool(
         "TIKTOK_VIDEO_COMMENTS",
         "Scavio TikTok Video Comments",
-        "List comments on a TikTok video.",
+        "List comments on a TikTok video. Costs 1 credit.",
         z.object({
           video_id: str("TikTok video id."),
           cursor: ostr("Pagination cursor."),
@@ -437,7 +440,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
       tool(
         "TIKTOK_COMMENT_REPLIES",
         "Scavio TikTok Comment Replies",
-        "List replies to a TikTok video comment.",
+        "List replies to a TikTok video comment. Costs 1 credit.",
         z.object({
           video_id: str("TikTok video id."),
           comment_id: str("Parent comment id."),
@@ -449,7 +452,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
       tool(
         "TIKTOK_SEARCH_VIDEOS",
         "Scavio TikTok Search Videos",
-        "Search TikTok videos by keyword.",
+        "Search TikTok videos by keyword. Costs 1 credit.",
         z.object({
           keyword: str("Search keyword."),
           cursor: ostr("Pagination cursor."),
@@ -462,7 +465,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
       tool(
         "TIKTOK_SEARCH_USERS",
         "Scavio TikTok Search Users",
-        "Search TikTok users by keyword.",
+        "Search TikTok users by keyword. Costs 1 credit.",
         z.object({
           keyword: str("Search keyword."),
           cursor: ostr("Pagination cursor."),
@@ -473,7 +476,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
       tool(
         "TIKTOK_HASHTAG",
         "Scavio TikTok Hashtag",
-        "Fetch a TikTok hashtag by name or id.",
+        "Fetch a TikTok hashtag by name or id. Costs 1 credit.",
         z.object({
           hashtag_name: ostr("Hashtag name (without #). Provide this or hashtag_id."),
           hashtag_id: ostr("Hashtag id. Provide this or hashtag_name."),
@@ -483,7 +486,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
       tool(
         "TIKTOK_HASHTAG_VIDEOS",
         "Scavio TikTok Hashtag Videos",
-        "List videos for a TikTok hashtag by id.",
+        "List videos for a TikTok hashtag by id. Costs 1 credit.",
         z.object({
           hashtag_id: str("Hashtag id."),
           cursor: ostr("Pagination cursor."),
@@ -494,7 +497,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
       tool(
         "TIKTOK_USER_FOLLOWERS",
         "Scavio TikTok User Followers",
-        "List a TikTok user's followers by secUid.",
+        "List a TikTok user's followers by secUid. Costs 1 credit.",
         z.object({
           sec_user_id: str("TikTok secUid of the user."),
           count: onum("Number of followers to return."),
@@ -506,7 +509,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
       tool(
         "TIKTOK_USER_FOLLOWINGS",
         "Scavio TikTok User Followings",
-        "List the accounts a TikTok user follows, by secUid.",
+        "List the accounts a TikTok user follows, by secUid. Costs 1 credit.",
         z.object({
           sec_user_id: str("TikTok secUid of the user."),
           count: onum("Number of followings to return."),
@@ -523,7 +526,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
       tool(
         "INSTAGRAM_PROFILE",
         "Scavio Instagram Profile",
-        "Fetch an Instagram profile by username or user id.",
+        "Fetch an Instagram profile by username or user id. Costs 10 credits.",
         z.object({
           username: ostr("Instagram username. Provide this or user_id."),
           user_id: ostr("Instagram user id. Provide this or username."),
@@ -533,7 +536,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
       tool(
         "INSTAGRAM_USER_POSTS",
         "Scavio Instagram User Posts",
-        "List an Instagram user's posts.",
+        "List an Instagram user's posts. Costs 2 credits, the cheapest Instagram endpoint.",
         z.object({
           username: ostr("Instagram username. Provide this or user_id."),
           user_id: ostr("Instagram user id. Provide this or username."),
@@ -545,7 +548,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
       tool(
         "INSTAGRAM_USER_REELS",
         "Scavio Instagram User Reels",
-        "List an Instagram user's reels.",
+        "List an Instagram user's reels. Costs 10 credits.",
         z.object({
           username: ostr("Instagram username. Provide this or user_id."),
           user_id: ostr("Instagram user id. Provide this or username."),
@@ -557,7 +560,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
       tool(
         "INSTAGRAM_USER_TAGGED",
         "Scavio Instagram User Tagged",
-        "List posts an Instagram user is tagged in.",
+        "List posts an Instagram user is tagged in. Costs 10 credits.",
         z.object({
           username: ostr("Instagram username. Provide this or user_id."),
           user_id: ostr("Instagram user id. Provide this or username."),
@@ -569,7 +572,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
       tool(
         "INSTAGRAM_USER_STORIES",
         "Scavio Instagram User Stories",
-        "Fetch an Instagram user's current stories.",
+        "Fetch an Instagram user's current stories. Costs 10 credits.",
         z.object({
           username: ostr("Instagram username. Provide this or user_id."),
           user_id: ostr("Instagram user id. Provide this or username."),
@@ -579,7 +582,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
       tool(
         "INSTAGRAM_POST",
         "Scavio Instagram Post",
-        "Fetch an Instagram post by URL, media id, or shortcode.",
+        "Fetch an Instagram post by URL, media id, or shortcode. Costs 8 credits.",
         z.object({
           url: ostr("Post URL. Provide one of url, media_id, or shortcode."),
           media_id: ostr("Post media id. Provide one of url, media_id, or shortcode."),
@@ -590,7 +593,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
       tool(
         "INSTAGRAM_POST_COMMENTS",
         "Scavio Instagram Post Comments",
-        "List comments on an Instagram post by shortcode or URL.",
+        "List comments on an Instagram post by shortcode or URL. Costs 10 credits.",
         z.object({
           shortcode: ostr("Post shortcode. Provide this or url."),
           url: ostr("Post URL. Provide this or shortcode."),
@@ -602,7 +605,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
       tool(
         "INSTAGRAM_COMMENT_REPLIES",
         "Scavio Instagram Comment Replies",
-        "List replies to an Instagram post comment.",
+        "List replies to an Instagram post comment. Costs 8 credits.",
         z.object({
           media_id: str("Post media id."),
           comment_id: str("Parent comment id."),
@@ -613,7 +616,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
       tool(
         "INSTAGRAM_SEARCH_USERS",
         "Scavio Instagram Search Users",
-        "Search Instagram users by keyword.",
+        "Search Instagram users by keyword. Costs 10 credits.",
         z.object({
           keyword: str("Search keyword."),
           cursor: ostr("Pagination cursor."),
@@ -623,7 +626,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
       tool(
         "INSTAGRAM_SEARCH_HASHTAGS",
         "Scavio Instagram Search Hashtags",
-        "Search Instagram hashtags by keyword.",
+        "Search Instagram hashtags by keyword. Costs 10 credits.",
         z.object({
           keyword: str("Search keyword."),
           cursor: ostr("Pagination cursor."),
@@ -633,7 +636,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
       tool(
         "INSTAGRAM_USER_FOLLOWERS",
         "Scavio Instagram User Followers",
-        "List an Instagram user's followers.",
+        "List an Instagram user's followers. Costs 10 credits.",
         z.object({
           username: ostr("Instagram username. Provide this or user_id."),
           user_id: ostr("Instagram user id. Provide this or username."),
@@ -645,7 +648,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
       tool(
         "INSTAGRAM_USER_FOLLOWINGS",
         "Scavio Instagram User Followings",
-        "List the accounts an Instagram user follows.",
+        "List the accounts an Instagram user follows. Costs 10 credits.",
         z.object({
           username: ostr("Instagram username. Provide this or user_id."),
           user_id: ostr("Instagram user id. Provide this or username."),
@@ -660,7 +663,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
   return experimental_createToolkit("SCAVIO", {
     name: "Scavio",
     description:
-      "Real-time structured search over Google, YouTube, Amazon, Walmart, Reddit, TikTok, and Instagram.",
+      "Real-time structured search over Google, YouTube, Amazon, Walmart, Reddit, TikTok, and Instagram (part of the Scavio API, which also covers TikTok Shop, X and LinkedIn).",
     tools,
   });
 }
