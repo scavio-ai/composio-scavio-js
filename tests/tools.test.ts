@@ -4,7 +4,8 @@ import { z } from "zod";
 /**
  * The Scavio SDK client is mocked, so no key and no network are used. Each
  * namespace is a proxy that records the method name and the exact options object
- * the tool handed it, which is what these tests assert on.
+ * the tool handed it, which is what these tests assert on. `extract` is mocked as
+ * a top-level METHOD, not a namespace, because that is what it is on the client.
  */
 const { calls } = vi.hoisted(() => ({
   calls: [] as { ns: string; method: string; args: Record<string, unknown> }[],
@@ -21,6 +22,27 @@ const NAMESPACES = [
   "instagram",
   "x",
   "linkedin",
+  "threads",
+  "kuaishou",
+  "ebay",
+  "target",
+  "homeDepot",
+  "zillow",
+  "booking",
+  "tripadvisor",
+  "indeed",
+  "airbnb",
+  "glassdoor",
+  "yelp",
+  "appStore",
+  "googlePlay",
+  "sec",
+  "redfin",
+  "companiesHouse",
+  "g2",
+  "capterra",
+  "googleAds",
+  "metaAds",
 ] as const;
 
 vi.mock("scavio", () => {
@@ -40,6 +62,10 @@ vi.mock("scavio", () => {
         );
       }
     }
+    extract(args: Record<string, unknown> = {}) {
+      calls.push({ ns: "", method: "extract", args });
+      return Promise.resolve({ ok: true, ns: "", method: "extract", args });
+    }
   }
   return { Scavio };
 });
@@ -48,17 +74,19 @@ const { buildScavioToolkit } = await import("../src/index.js");
 
 type Toolkit = ReturnType<typeof buildScavioToolkit>;
 type Tool = Toolkit["tools"][number];
+type Options = NonNullable<Parameters<typeof buildScavioToolkit>[0]>;
 
 /**
  * Tool count per provider, and therefore the coverage contract of this package.
- * Total = 97 = every live Scavio endpoint (98 minus the deprecated
- * /youtube/metadata alias, which is not exposed) minus the 5 retired LinkedIn
- * endpoints, which are never registered.
+ * Total = 189 = every live Scavio endpoint (195 in the SDK, minus the deprecated
+ * /youtube/metadata alias, which is not exposed, minus the 5 retired LinkedIn
+ * endpoints, which are never registered). "extract" is a pseudo-provider: the
+ * top-level client.extract(), never a namespace.
  */
 const EXPECTED_COUNTS: Record<string, number> = {
   google: 14,
-  amazon: 3,
-  walmart: 2,
+  amazon: 4,
+  walmart: 7,
   youtube: 15,
   reddit: 12,
   tiktok: 11,
@@ -66,9 +94,31 @@ const EXPECTED_COUNTS: Record<string, number> = {
   instagram: 12,
   x: 11,
   linkedin: 9,
+  extract: 1,
+  threads: 6,
+  kuaishou: 14,
+  ebay: 3,
+  target: 4,
+  homeDepot: 3,
+  zillow: 3,
+  booking: 3,
+  tripadvisor: 4,
+  indeed: 4,
+  airbnb: 3,
+  glassdoor: 4,
+  yelp: 3,
+  appStore: 3,
+  googlePlay: 3,
+  sec: 6,
+  redfin: 3,
+  companiesHouse: 4,
+  g2: 3,
+  capterra: 3,
+  googleAds: 3,
+  metaAds: 3,
 };
 
-const FLAGS: Record<string, keyof Parameters<typeof buildScavioToolkit>[0]> = {
+const FLAGS: Record<string, keyof Options> = {
   google: "enableGoogle",
   amazon: "enableAmazon",
   walmart: "enableWalmart",
@@ -79,9 +129,57 @@ const FLAGS: Record<string, keyof Parameters<typeof buildScavioToolkit>[0]> = {
   instagram: "enableInstagram",
   x: "enableX",
   linkedin: "enableLinkedin",
+  extract: "enableExtract",
+  threads: "enableThreads",
+  kuaishou: "enableKuaishou",
+  ebay: "enableEbay",
+  target: "enableTarget",
+  homeDepot: "enableHomeDepot",
+  zillow: "enableZillow",
+  booking: "enableBooking",
+  tripadvisor: "enableTripadvisor",
+  indeed: "enableIndeed",
+  airbnb: "enableAirbnb",
+  glassdoor: "enableGlassdoor",
+  yelp: "enableYelp",
+  appStore: "enableAppStore",
+  googlePlay: "enableGooglePlay",
+  sec: "enableSec",
+  redfin: "enableRedfin",
+  companiesHouse: "enableCompaniesHouse",
+  g2: "enableG2",
+  capterra: "enableCapterra",
+  googleAds: "enableGoogleAds",
+  metaAds: "enableMetaAds",
 };
 
-/** Credits per tool, from the canonical backend cost maps. */
+/** The verticals added in 0.4.0. Opt-in, so a plain upgrade adds nothing. */
+const OPT_IN = [
+  "threads",
+  "kuaishou",
+  "ebay",
+  "target",
+  "homeDepot",
+  "zillow",
+  "booking",
+  "tripadvisor",
+  "indeed",
+  "airbnb",
+  "glassdoor",
+  "yelp",
+  "appStore",
+  "googlePlay",
+  "sec",
+  "redfin",
+  "companiesHouse",
+  "g2",
+  "capterra",
+  "googleAds",
+  "metaAds",
+];
+const DEFAULT_ON = Object.keys(EXPECTED_COUNTS).filter((ns) => !OPT_IN.includes(ns));
+
+/** Credits per tool on the flat-priced platforms, from the canonical cost maps. */
 const CREDITS: Record<string, number> = {
   // Google v2: 14 endpoints, 1 credit each.
   GOOGLE_SEARCH: 1,
@@ -101,8 +199,6 @@ const CREDITS: Record<string, number> = {
   AMAZON_SEARCH: 1,
   AMAZON_PRODUCT: 1,
   AMAZON_OFFERS: 1,
-  WALMART_SEARCH: 1,
-  WALMART_PRODUCT: 1,
   // YouTube: search and shorts 2, transcript 8, streams 3, everything else 1.
   YOUTUBE_SEARCH: 2,
   YOUTUBE_SHORTS: 2,
@@ -187,7 +283,55 @@ const CREDITS: Record<string, number> = {
   LINKEDIN_POST_COMMENTS: 10,
 };
 
-function build(options: Parameters<typeof buildScavioToolkit>[0] = {}) {
+/** Platforms added in 0.4.0 whose whole surface is one flat per-call price. */
+const FLAT_PLATFORM_CREDITS: Record<string, number> = {
+  ebay: 1,
+  target: 1,
+  homeDepot: 2,
+  zillow: 1,
+  booking: 1,
+  tripadvisor: 2,
+  indeed: 2,
+  airbnb: 1,
+  glassdoor: 1,
+  yelp: 2,
+  appStore: 1,
+  googlePlay: 2,
+  sec: 1,
+  redfin: 1,
+  companiesHouse: 1,
+  g2: 5,
+  capterra: 2,
+  googleAds: 1,
+  metaAds: 1,
+};
+
+/**
+ * The four BODY-PRICED surfaces. Their cost is a function of the request body, so
+ * a flat "Costs N credits." on any of them would be a lie: each description has to
+ * carry the thing the price actually varies with.
+ */
+const BODY_PRICED: Record<string, string[]> = {
+  WALMART_SEARCH: ["1 credit on domain", "2 credits on 'com.mx'"],
+  WALMART_CATEGORY: ["1 credit on domain", "2 credits on 'com.mx'"],
+  WALMART_PRODUCT: ["body-priced through `domain`"],
+  WALMART_REVIEWS: ["body-priced through `domain`"],
+  WALMART_OFFERS: ["body-priced through `domain`"],
+  WALMART_SELLER: ["body-priced through `domain`"],
+  WALMART_SELLER_PRODUCTS: ["body-priced through `domain`"],
+  THREADS_PROFILE: ["2 credits addressed by user_id", "4 credits addressed by username"],
+  THREADS_USER_POSTS: ["2 credits addressed by user_id", "4 credits addressed by username"],
+  THREADS_USER_REPLIES: ["2 credits addressed by user_id", "4 credits addressed by username"],
+  THREADS_POST: ["body-priced by identifier"],
+  THREADS_POST_COMMENTS: ["body-priced by identifier"],
+  THREADS_SEARCH_USERS: ["body-priced by identifier"],
+  EXTRACT: ["Tier-priced by mode", "'ultra' costs 2", "Only a successful extraction is billed"],
+};
+
+/** AMAZON_OPTIONS is a static marketplace list: no key, no credits. */
+const FREE = ["AMAZON_OPTIONS"];
+
+function build(options: Options = {}) {
   return buildScavioToolkit({ apiKey: "test", ...options });
 }
 
@@ -228,7 +372,7 @@ beforeEach(() => {
 describe("coverage", () => {
   it("registers every live Scavio endpoint exactly once", () => {
     const slugs = slugsOf(build({ all: true }));
-    expect(slugs.length).toBe(97);
+    expect(slugs.length).toBe(189);
     expect(new Set(slugs).size).toBe(slugs.length);
   });
 
@@ -236,10 +380,10 @@ describe("coverage", () => {
     const actual: Record<string, number> = {};
     for (const ns of Object.keys(EXPECTED_COUNTS)) actual[ns] = only(ns).tools.length;
     expect(actual).toEqual(EXPECTED_COUNTS);
-    expect(Object.values(actual).reduce((a, b) => a + b, 0)).toBe(97);
+    expect(Object.values(actual).reduce((a, b) => a + b, 0)).toBe(189);
   });
 
-  it("covers all ten platforms", () => {
+  it("covers all 32 platforms", () => {
     const slugs = slugsOf(build({ all: true }));
     for (const prefix of [
       "GOOGLE_",
@@ -252,36 +396,95 @@ describe("coverage", () => {
       "INSTAGRAM_",
       "X_",
       "LINKEDIN_",
+      "THREADS_",
+      "KUAISHOU_",
+      "EBAY_",
+      "TARGET_",
+      "HOME_DEPOT_",
+      "ZILLOW_",
+      "BOOKING_",
+      "TRIPADVISOR_",
+      "INDEED_",
+      "AIRBNB_",
+      "GLASSDOOR_",
+      "YELP_",
+      "APP_STORE_",
+      "GOOGLE_PLAY_",
+      "SEC_",
+      "REDFIN_",
+      "COMPANIES_HOUSE_",
+      "G2_",
+      "CAPTERRA_",
+      "GOOGLE_ADS_",
+      "META_ADS_",
     ]) {
-      expect(slugs.some((s: string) => s.startsWith(prefix))).toBe(true);
+      expect(slugs.some((s: string) => s.startsWith(prefix)), prefix).toBe(true);
+    }
+    expect(slugs).toContain("EXTRACT");
+  });
+
+  it("keeps the 0.4.0 verticals opt-in", () => {
+    const slugs = new Set(slugsOf(build()));
+    const expected = DEFAULT_ON.reduce((a, ns) => a + EXPECTED_COUNTS[ns], 0);
+    expect(slugs.size).toBe(expected);
+    expect(slugs.size).toBe(104);
+    expect(slugs.has("EXTRACT")).toBe(true);
+    expect(slugs.has("WALMART_SELLER")).toBe(true);
+    for (const absent of ["ZILLOW_SEARCH", "G2_PRODUCT", "SEC_LOOKUP", "META_ADS_AD"]) {
+      expect(slugs.has(absent), absent).toBe(false);
     }
   });
 
   it("states the credit cost of every tool, and states it correctly", () => {
+    const flatByPlatform: Record<string, number> = {};
+    for (const [ns, credits] of Object.entries(FLAT_PLATFORM_CREDITS)) {
+      for (const tool of only(ns).tools as Tool[]) flatByPlatform[tool.slug] = credits;
+    }
     for (const tool of build({ all: true }).tools as Tool[]) {
-      const expected = CREDITS[tool.slug];
+      const description = tool.description ?? "";
+      expect(description.toLowerCase(), `${tool.slug} says nothing about credits`).toContain(
+        "credit"
+      );
+      if (FREE.includes(tool.slug)) {
+        expect(description).toContain("costs no credits");
+        continue;
+      }
+      if (BODY_PRICED[tool.slug]) continue;
+      if (tool.slug.startsWith("KUAISHOU_")) continue;
+      const expected = CREDITS[tool.slug] ?? flatByPlatform[tool.slug];
       expect(expected, `no expected credit cost for ${tool.slug}`).toBeDefined();
-      const match = /Costs (\d+) credits?\b/.exec(tool.description ?? "");
+      const match = /[Cc]osts? (\d+) credits?\b/.exec(description);
       expect(match, `${tool.slug} does not state its credit cost`).not.toBeNull();
       expect(Number(match![1]), `${tool.slug} states the wrong credit cost`).toBe(expected);
     }
   });
 
+  it("never shows a flat cost on a body-priced surface", () => {
+    const bySlug = new Map(
+      (build({ all: true }).tools as Tool[]).map((t) => [t.slug, t.description ?? ""])
+    );
+    for (const [slug, phrases] of Object.entries(BODY_PRICED)) {
+      for (const phrase of phrases) {
+        expect(bySlug.get(slug), `${slug} must say "${phrase}"`).toContain(phrase);
+      }
+    }
+    // Kuaishou is priced per endpoint, never per platform: every tool says so.
+    for (const tool of only("kuaishou").tools as Tool[]) {
+      expect(tool.description ?? "", tool.slug).toContain("priced PER ENDPOINT (1, 2, 10 or 40)");
+    }
+  });
+
   it("every tool calls a method that exists on the installed Scavio SDK", async () => {
     const actual = await vi.importActual<typeof import("scavio")>("scavio");
-    const real = new actual.Scavio({ apiKey: "test" }) as unknown as Record<
-      string,
-      Record<string, unknown>
-    >;
+    const real = new actual.Scavio({ apiKey: "test" }) as unknown as Record<string, unknown>;
     for (const tool of build({ all: true }).tools as Tool[]) {
       calls.length = 0;
       await tool.execute(sampleInput(tool.inputParams as z.ZodTypeAny), {} as never);
       expect(calls.length, `${tool.slug} made no SDK call`).toBe(1);
       const { ns, method } = calls[0];
-      expect(
-        typeof real[ns]?.[method],
-        `${tool.slug} calls missing scavio.${ns}.${method}`
-      ).toBe("function");
+      const owner = ns === "" ? real : (real[ns] as Record<string, unknown> | undefined);
+      const target = ns === "" ? `scavio.${method}` : `scavio.${ns}.${method}`;
+      expect(typeof owner?.[method], `${tool.slug} calls missing ${target}`).toBe("function");
     }
   });
 });
@@ -303,10 +506,26 @@ describe("gating", () => {
     expect(slugs.has("LINKEDIN_JOB")).toBe(true);
   });
 
-  it("gates the three new providers independently", () => {
+  it("gates each provider independently", () => {
     expect(only("tiktokShop").tools.length).toBe(8);
     expect(only("x").tools.length).toBe(11);
     expect(only("linkedin").tools.length).toBe(9);
+    expect(only("kuaishou").tools.length).toBe(14);
+    expect(only("sec").tools.length).toBe(6);
+    expect(only("extract").tools.length).toBe(1);
+  });
+
+  it("keeps the three google-prefixed namespaces apart", () => {
+    const google = new Set(slugsOf(only("google")));
+    const ads = new Set(slugsOf(only("googleAds")));
+    const play = new Set(slugsOf(only("googlePlay")));
+    expect([...ads]).toEqual([
+      "GOOGLE_ADS_ADVERTISERS",
+      "GOOGLE_ADS_SEARCH",
+      "GOOGLE_ADS_CREATIVE",
+    ]);
+    expect([...play]).toEqual(["GOOGLE_PLAY_SEARCH", "GOOGLE_PLAY_APP", "GOOGLE_PLAY_REVIEWS"]);
+    for (const slug of [...ads, ...play]) expect(google.has(slug)).toBe(false);
   });
 });
 
@@ -360,6 +579,29 @@ describe("google v2", () => {
   });
 });
 
+describe("extract", () => {
+  it("is a top-level method on the client, never a namespace", async () => {
+    const tool = (only("extract").tools as Tool[])[0];
+    expect(tool.slug).toBe("EXTRACT");
+    expect(Object.keys((tool.inputParams as z.ZodObject<z.ZodRawShape>).shape)).toEqual([
+      "url",
+      "format",
+      "mode",
+    ]);
+    await tool.execute(
+      { url: "https://example.com/pricing", format: "markdown", mode: "ultra" },
+      {} as never
+    );
+    expect(calls[0].ns).toBe("");
+    expect(calls[0].method).toBe("extract");
+    expect(calls[0].args).toEqual({
+      url: "https://example.com/pricing",
+      format: "markdown",
+      mode: "ultra",
+    });
+  });
+});
+
 describe("wire quirks", () => {
   const find = (provider: string, slug: string) =>
     (only(provider).tools as Tool[]).find((t) => t.slug === slug)!;
@@ -386,7 +628,18 @@ describe("wire quirks", () => {
 
   it("Amazon product takes the ASIN, Walmart product takes product_id", () => {
     expect(shapeOf(find("amazon", "AMAZON_PRODUCT"))).toContain("asin");
-    expect(shapeOf(find("walmart", "WALMART_PRODUCT"))).toContain("product_id");
+    expect(shapeOf(find("walmart", "WALMART_PRODUCT"))).toEqual(["product_id"]);
+  });
+
+  it("Walmart dropped the params the scrape.do rebuild retired", () => {
+    const shape = shapeOf(find("walmart", "WALMART_SEARCH"));
+    expect(shape).toContain("page");
+    for (const gone of ["device", "delivery_zip", "store_id"]) {
+      expect(shape, gone).not.toContain(gone);
+    }
+    // Only search and category carry a domain, and only they can cost 2 credits.
+    expect(shapeOf(find("walmart", "WALMART_CATEGORY"))).toContain("domain");
+    expect(shapeOf(find("walmart", "WALMART_REVIEWS"))).not.toContain("domain");
   });
 
   it("Instagram search takes `keyword`", () => {
@@ -423,6 +676,29 @@ describe("wire quirks", () => {
     const shape = shapeOf(find("linkedin", "LINKEDIN_POST_COMMENTS"));
     expect(shape).toContain("page");
     expect(shape).not.toContain("cursor");
+  });
+
+  it("Kuaishou videos batch takes an array of photo ids", async () => {
+    const tool = find("kuaishou", "KUAISHOU_VIDEOS_BATCH");
+    let field: z.ZodTypeAny = (tool.inputParams as z.ZodObject<z.ZodRawShape>).shape.photo_ids;
+    if (field instanceof z.ZodOptional) field = field.unwrap();
+    expect(field).toBeInstanceOf(z.ZodArray);
+    await tool.execute({ photo_ids: ["a", "b"] }, {} as never);
+    expect(calls[0].args).toEqual({ photo_ids: ["a", "b"] });
+  });
+
+  it("exposes the resolver each id-keyed platform starts from", () => {
+    const slugs = new Set(slugsOf(build({ all: true })));
+    for (const resolver of [
+      "SEC_LOOKUP",
+      "GLASSDOOR_COMPANIES",
+      "TRIPADVISOR_LOCATIONS",
+      "GOOGLE_ADS_ADVERTISERS",
+      "COMPANIES_HOUSE_SEARCH",
+      "KUAISHOU_USER_RESOLVE",
+    ]) {
+      expect(slugs.has(resolver), resolver).toBe(true);
+    }
   });
 });
 

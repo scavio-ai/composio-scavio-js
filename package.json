@@ -1,7 +1,7 @@
 {
   "name": "composio-scavio",
-  "version": "0.3.0",
-  "description": "Scavio real-time search tools for Composio (Google, YouTube, Amazon, Walmart, Reddit, TikTok, TikTok Shop, Instagram, X, LinkedIn)",
+  "version": "0.4.0",
+  "description": "Scavio real-time search tools for Composio: 189 tools over 32 platforms (Google, YouTube, Amazon, Walmart, eBay, Target, Home Depot, Reddit, TikTok, TikTok Shop, Instagram, X, LinkedIn, Threads, Kuaishou, Zillow, Redfin, Booking.com, Airbnb, Tripadvisor, Yelp, Indeed, Glassdoor, App Store, Google Play, SEC EDGAR, Companies House, G2, Capterra, Google Ads, Meta Ad Library) plus extract",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -41,6 +41,12 @@
     "tools",
     "serp",
     "google-search",
+    "web-scraping",
+    "extract",
+    "ecommerce",
+    "real-estate",
+    "reviews",
+    "jobs",
     "tavily-alternative",
     "serpapi-alternative"
   ],
@@ -56,7 +62,7 @@
   },
   "dependencies": {
     "@composio/core": "^0.13.1",
-    "scavio": "^0.14.0",
+    "scavio": "^0.15.0",
     "zod": "^3.25.0"
   },
   "devDependencies": {
