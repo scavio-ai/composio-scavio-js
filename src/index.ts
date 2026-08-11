@@ -1,7 +1,7 @@
 /**
  * Scavio tools for Composio.
  *
- * Scavio is a single Search API over 32 platforms - Google, YouTube, Amazon,
+ * Scavio is a single Search API over 31 platforms - Google, YouTube, Amazon,
  * Walmart, eBay, Target, Home Depot, Reddit, TikTok, TikTok Shop, Instagram, X,
  * LinkedIn, Threads, Kuaishou, Zillow, Redfin, Booking.com, Airbnb, Tripadvisor,
  * Yelp, Indeed, Glassdoor, the Apple App Store, Google Play, SEC EDGAR, Companies
@@ -2597,7 +2597,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
   return experimental_createToolkit("SCAVIO", {
     name: "Scavio",
     description:
-      "Real-time structured search over 32 platforms - Google (SERP, AI Mode, Maps, Shopping, Flights, Hotels, News, Trends), YouTube, Amazon, Walmart, eBay, Target, Home Depot, Reddit, TikTok, TikTok Shop, Instagram, X, LinkedIn, Threads, Kuaishou, Zillow, Redfin, Booking.com, Airbnb, Tripadvisor, Yelp, Indeed, Glassdoor, the Apple App Store, Google Play, SEC EDGAR, Companies House, G2, Capterra, Google Ads Transparency and the Meta Ad Library - plus extract, which reads any URL as Markdown, plain text or raw HTML.",
+      "Real-time structured search over 31 platforms - Google (SERP, AI Mode, Maps, Shopping, Flights, Hotels, News, Trends), YouTube, Amazon, Walmart, eBay, Target, Home Depot, Reddit, TikTok, TikTok Shop, Instagram, X, LinkedIn, Threads, Kuaishou, Zillow, Redfin, Booking.com, Airbnb, Tripadvisor, Yelp, Indeed, Glassdoor, the Apple App Store, Google Play, SEC EDGAR, Companies House, G2, Capterra, Google Ads Transparency and the Meta Ad Library - plus extract, which reads any URL as Markdown, plain text or raw HTML.",
     tools,
   });
 }

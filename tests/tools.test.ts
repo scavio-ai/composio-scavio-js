@@ -383,7 +383,7 @@ describe("coverage", () => {
     expect(Object.values(actual).reduce((a, b) => a + b, 0)).toBe(189);
   });
 
-  it("covers all 32 platforms", () => {
+  it("covers all 31 platforms", () => {
     const slugs = slugsOf(build({ all: true }));
     for (const prefix of [
       "GOOGLE_",
