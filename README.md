@@ -2,7 +2,11 @@
 
 [Scavio](https://scavio.dev) real-time search tools for [Composio](https://composio.dev) (TypeScript).
 
-Scavio is a single Search API over 31 platforms -- Google, YouTube, Amazon, Walmart, eBay, Target, Home Depot, Reddit, TikTok, TikTok Shop, Instagram, X, LinkedIn, Threads, Kuaishou, Zillow, Redfin, Booking.com, Airbnb, Tripadvisor, Yelp, Indeed, Glassdoor, the Apple App Store, Google Play, SEC EDGAR, Companies House, G2, Capterra, Google Ads Transparency and the Meta Ad Library -- plus `extract`, which reads any URL as Markdown, plain text or raw HTML. This package exposes **189 tools, one per live endpoint** as a Composio custom toolkit so your agents can pull structured, up-to-date results across any Composio-supported framework.
+Scavio is a single Search API over 31 platforms -- Google, YouTube, Amazon, Walmart, eBay, Target, Home Depot, Reddit, TikTok, TikTok Shop, Instagram, X, LinkedIn, Threads, Kuaishou, Zillow, Redfin, Booking.com, Airbnb, Tripadvisor, Yelp, Indeed, Glassdoor, the Apple App Store, Google Play, SEC EDGAR, Companies House, G2, Capterra, Google Ads Transparency and the Meta Ad Library -- plus `extract`, which reads any URL as Markdown, plain text or raw HTML. This package exposes **194 tools** -- one per live endpoint plus five website tools that map, crawl and batch-extract whole sites -- as a Composio custom toolkit so your agents can pull structured, up-to-date results across any Composio-supported framework.
+
+> **New in 0.5.0: website map, crawl and batch.** Five opt-in tools behind
+> `enableCrawl` -- see [Map, crawl and batch](#map-crawl-and-batch). Needs
+> `scavio` >= 0.23.0; the default tool set is unchanged.
 
 > **New in 0.4.0: 21 more platforms, and they are opt-in.** Registering all 189
 > tools at once buries the handful an agent actually wants, so the verticals
@@ -12,7 +16,7 @@ Scavio is a single Search API over 31 platforms -- Google, YouTube, Amazon, Walm
 > everything. Nothing that worked in 0.3.0 changes, except that Walmart grew from
 > 2 tools to 7.
 
-> **Walmart was rebuilt (breaking).** Walmart now runs on a scrape.do rebuild:
+> **Walmart was rebuilt (breaking):**
 > `device`, `delivery_zip` and `store_id` never existed on it and are gone,
 > `start_page` is replaced by `page`, and five endpoints beyond search/product
 > are exposed for the first time (`WALMART_REVIEWS`, `WALMART_CATEGORY`,
@@ -48,7 +52,7 @@ Scavio is a single Search API over 31 platforms -- Google, YouTube, Amazon, Walm
 npm install composio-scavio
 ```
 
-`@composio/core`, `scavio` (>= 0.15.0) and `zod` are dependencies. Get a Scavio API key from the [Scavio Dashboard](https://dashboard.scavio.dev) (50 one-time signup credits, no credit card; the free plan does not refill monthly).
+`@composio/core`, `scavio` (>= 0.23.0) and `zod` are dependencies. Get a Scavio API key from the [Scavio Dashboard](https://dashboard.scavio.dev) (50 one-time signup credits, no credit card; the free plan does not refill monthly).
 
 ## Usage
 
@@ -111,7 +115,7 @@ All tools are grouped under the `SCAVIO` custom toolkit; agent-facing slugs are 
 | LinkedIn | `enableLinkedin` | 9 | person, person about, person posts, company, company posts, search jobs, job, post, post comments |
 | Extract (any URL) | `enableExtract` | 1 | extract |
 
-### Opt-in (85 tools)
+### Opt-in (90 tools)
 
 | Platform | Flag | Tools | Endpoints |
 |---|---|---|---|
@@ -136,7 +140,8 @@ All tools are grouped under the `SCAVIO` custom toolkit; agent-facing slugs are 
 | Capterra | `enableCapterra` | 3 | search, product, reviews |
 | Google Ads Transparency | `enableGoogleAds` | 3 | advertisers, search, creative |
 | Meta Ad Library | `enableMetaAds` | 3 | search, advertiser, ad |
-| **Total** | | **189** | |
+| Website map, crawl, batch | `enableCrawl` | 5 | map website, crawl website, crawl status, batch extract, batch status |
+| **Total** | | **194** | |
 
 Two endpoints are deliberately not exposed:
 
@@ -146,6 +151,61 @@ Two endpoints are deliberately not exposed:
 ### Resolve first
 
 Six tools exist only to turn a name you have into the id everything else on that platform is keyed by. Call them first, or the rest of the platform is unreachable: `SEC_LOOKUP` (ticker to CIK), `GLASSDOOR_COMPANIES` (name to `employer_id`), `TRIPADVISOR_LOCATIONS` (name to `geo_id` + `location_id`), `GOOGLE_ADS_ADVERTISERS` (brand to `advertiser_id`), `COMPANIES_HOUSE_SEARCH` (name to `company_number`) and `KUAISHOU_USER_RESOLVE` (share link to `user_id`).
+
+## Map, crawl and batch
+
+Five opt-in tools for whole sites, behind `enableCrawl` (off by default, because a
+crawl bills per page):
+
+| Tool | What it does | Credits |
+|---|---|---|
+| `LOCAL_SCAVIO_MAP_WEBSITE` | List a site's page URLs from its sitemaps and start page, deduplicated and filtered by path or search words | 1 (normal mode; advanced up to 2, ultra up to 10) |
+| `LOCAL_SCAVIO_CRAWL_WEBSITE` | Crawl a site from one URL; every same-site page as Markdown, text or HTML | per successful page |
+| `LOCAL_SCAVIO_CRAWL_STATUS` | A crawl's progress and page results, cursor-paged | free |
+| `LOCAL_SCAVIO_BATCH_EXTRACT` | Extract a list of URLs (up to 1,000, plan-limited) in one job | per successful page |
+| `LOCAL_SCAVIO_BATCH_STATUS` | A batch's progress and page results, cursor-paged | free |
+
+Map answers in one call. Crawl and batch run as background jobs: the start tool
+posts the job and then **waits up to `wait_seconds` (default 45, max 300)** for
+it to finish, returning the job's status with its first page of results (10 by
+default, `limit` up to 100) either way. A job still `queued` or `running` when
+the wait ends keeps going server-side: read the rest later with the matching
+status tool, the returned `data.id` and `next_cursor`. That keeps an agent turn
+bounded while a large crawl (up to 6 hours) runs on.
+
+```ts
+const scavio = buildScavioToolkit({ enableCrawl: true });
+const session = await composio.create("user_1", {
+  experimental: { customToolkits: [scavio] },
+});
+
+const links = await session.execute("LOCAL_SCAVIO_MAP_WEBSITE", { url: "https://hono.dev/docs", limit: 50 });
+const job = await session.execute("LOCAL_SCAVIO_CRAWL_WEBSITE", {
+  url: "https://hono.dev/docs",
+  max_pages: 25,
+  include_paths: ["/docs/**"],
+});
+// -> { data: { id, status: "completed" | "running", pages, credits_used, results, next_cursor } }
+// Page on, or pick up a job that outlived the wait (free):
+await session.execute("LOCAL_SCAVIO_CRAWL_STATUS", { id: "<data.id>", cursor: "<data.next_cursor>" });
+```
+
+`pollIntervalMs` (default 3000) sets how often a waiting tool checks its job.
+
+**Pricing.** Crawl and batch bill **per successful page** at Extract's price for
+the mode: `normal` (the standard fetch) and `advanced` (renders JavaScript-built
+pages) 1 credit, `ultra` (the hardest pages) 2. Failed and skipped pages are
+free, and if your balance runs out the job stops cleanly with
+`stopped_reason: "insufficient_credits"`. Reading a job is free. Crawl and map
+obey the site's robots.txt, and results are kept for 3 days.
+
+**Plan limits** (pages per crawl / active jobs / URLs per batch): Free 10/1/10,
+PAYG 100/1/50, Project 500/2/100, Bootstrap 2,000/3/500, Startup 5,000/5/1,000,
+Growth 10,000/10/1,000.
+
+Cancellation, webhooks (signed `Scavio-Signature`) and idempotency keys exist in
+the `scavio` SDK (`extract.cancelCrawl`, `webhook_url`, `idempotencyKey`) and the
+[REST API](https://scavio.dev/docs/extract), but are deliberately not agent tools.
 
 ## Credits
 
@@ -165,7 +225,7 @@ Every tool states its cost in its description. Most endpoints cost 1 credit.
 | Instagram | 10, except post 8, comment replies 8, user posts 2 |
 | LinkedIn | 1 for person, person about, company, post; 10 for person posts, company posts, search jobs, post comments; **30 for job** (the most expensive endpoint in the API) |
 
-**Four surfaces are body-priced** -- their cost is a function of the request, not a constant for the route, so no single number can be quoted:
+**These surfaces are body-priced** -- their cost is a function of the request, not a constant for the route, so no single number can be quoted:
 
 | Surface | Price |
 |---|---|
@@ -173,6 +233,8 @@ Every tool states its cost in its description. Most endpoints cost 1 credit.
 | Threads | 2 credits addressed by `user_id`, 4 by `username` (the handle has to be resolved through people search first). `THREADS_POST`, `_POST_COMMENTS` and `_SEARCH_USERS` have no username form and are always 2. |
 | Kuaishou | Priced **per endpoint**, never per platform: 1 (`USER_POSTS`, `USER_LIVE`, `USER_RESOLVE`, `VIDEO_COMMENTS`, `COMMENT_REPLIES`, `TAG_FEED`, `TRENDING`), 2 (`VIDEO`), 10 (`PROFILE` and the four searches, per page), 40 (`VIDEOS_BATCH`). |
 | Extract | Tier-priced by `mode`: `normal` and `advanced` 1 credit, `ultra` 2. Only a successful extraction is billed -- a dead link, bot wall or timeout costs nothing. |
+| Map website | 1 credit on `normal`; up to 2 on `advanced`, up to 10 on `ultra`, priced by what the call needed. |
+| Crawl website, batch extract | **Per successful page** at Extract's price for the mode (1 / 1 / 2). Failed and skipped pages are free; `CRAWL_STATUS` and `BATCH_STATUS` cost nothing. |
 
 See [scavio.dev/docs](https://scavio.dev/docs).
 

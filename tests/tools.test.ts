@@ -7,8 +7,10 @@ import { z } from "zod";
  * the tool handed it, which is what these tests assert on. `extract` is mocked as
  * a top-level METHOD, not a namespace, because that is what it is on the client.
  */
-const { calls } = vi.hoisted(() => ({
+const { calls, jobAnswers } = vi.hoisted(() => ({
   calls: [] as { ns: string; method: string; args: Record<string, unknown> }[],
+  /** Queued answers for the extract.map/crawl/batch/... mocks, consumed in order. */
+  jobAnswers: [] as unknown[],
 }));
 
 const NAMESPACES = [
@@ -62,10 +64,24 @@ vi.mock("scavio", () => {
         );
       }
     }
-    extract(args: Record<string, unknown> = {}) {
-      calls.push({ ns: "", method: "extract", args });
-      return Promise.resolve({ ok: true, ns: "", method: "extract", args });
-    }
+    // extract is a CALLABLE namespace (scavio >= 0.23): extract({ url }) reads one
+    // page and is recorded with ns ""; map/crawl/batch hang off it as ns "extract".
+    extract = Object.assign(
+      (args: Record<string, unknown> = {}) => {
+        calls.push({ ns: "", method: "extract", args });
+        return Promise.resolve({ ok: true, ns: "", method: "extract", args });
+      },
+      Object.fromEntries(
+        ["map", "crawl", "crawlStatus", "batch", "batchStatus"].map((method) => [
+          method,
+          (...a: unknown[]) => {
+            const args = (typeof a[0] === "string" ? { id: a[0], ...(a[1] as object) } : a[0]) as Record<string, unknown>;
+            calls.push({ ns: "extract", method, args });
+            return Promise.resolve(jobAnswers.length ? jobAnswers.shift() : { ok: true, ns: "extract", method, args });
+          },
+        ])
+      )
+    );
   }
   return { Scavio };
 });
@@ -116,6 +132,7 @@ const EXPECTED_COUNTS: Record<string, number> = {
   capterra: 3,
   googleAds: 3,
   metaAds: 3,
+  crawl: 5,
 };
 
 const FLAGS: Record<string, keyof Options> = {
@@ -151,6 +168,7 @@ const FLAGS: Record<string, keyof Options> = {
   capterra: "enableCapterra",
   googleAds: "enableGoogleAds",
   metaAds: "enableMetaAds",
+  crawl: "enableCrawl",
 };
 
 /** The verticals added in 0.4.0. Opt-in, so a plain upgrade adds nothing. */
@@ -176,6 +194,7 @@ const OPT_IN = [
   "capterra",
   "googleAds",
   "metaAds",
+  "crawl",
 ];
 const DEFAULT_ON = Object.keys(EXPECTED_COUNTS).filter((ns) => !OPT_IN.includes(ns));
 
@@ -281,6 +300,7 @@ const CREDITS: Record<string, number> = {
   LINKEDIN_JOB: 30,
   LINKEDIN_POST: 1,
   LINKEDIN_POST_COMMENTS: 10,
+  MAP_WEBSITE: 1,
 };
 
 /** Platforms added in 0.4.0 whose whole surface is one flat per-call price. */
@@ -326,10 +346,12 @@ const BODY_PRICED: Record<string, string[]> = {
   THREADS_POST_COMMENTS: ["body-priced by identifier"],
   THREADS_SEARCH_USERS: ["body-priced by identifier"],
   EXTRACT: ["Tier-priced by mode", "'ultra' costs 2", "Only a successful extraction is billed"],
+  CRAWL_WEBSITE: ["Billed per SUCCESSFUL page", "'ultra' 2 credits", "Failed and skipped pages are free"],
+  BATCH_EXTRACT: ["Billed per SUCCESSFUL page", "'ultra' 2 credits", "Failed and skipped pages are free"],
 };
 
 /** AMAZON_OPTIONS is a static marketplace list: no key, no credits. */
-const FREE = ["AMAZON_OPTIONS"];
+const FREE = ["AMAZON_OPTIONS", "CRAWL_STATUS", "BATCH_STATUS"];
 
 function build(options: Options = {}) {
   return buildScavioToolkit({ apiKey: "test", ...options });
@@ -367,12 +389,13 @@ function sampleInput(schema: z.ZodTypeAny): Record<string, unknown> {
 
 beforeEach(() => {
   calls.length = 0;
+  jobAnswers.length = 0;
 });
 
 describe("coverage", () => {
   it("registers every live Scavio endpoint exactly once", () => {
     const slugs = slugsOf(build({ all: true }));
-    expect(slugs.length).toBe(189);
+    expect(slugs.length).toBe(194);
     expect(new Set(slugs).size).toBe(slugs.length);
   });
 
@@ -380,7 +403,7 @@ describe("coverage", () => {
     const actual: Record<string, number> = {};
     for (const ns of Object.keys(EXPECTED_COUNTS)) actual[ns] = only(ns).tools.length;
     expect(actual).toEqual(EXPECTED_COUNTS);
-    expect(Object.values(actual).reduce((a, b) => a + b, 0)).toBe(189);
+    expect(Object.values(actual).reduce((a, b) => a + b, 0)).toBe(194);
   });
 
   it("covers all 31 platforms", () => {
@@ -482,7 +505,7 @@ describe("coverage", () => {
       await tool.execute(sampleInput(tool.inputParams as z.ZodTypeAny), {} as never);
       expect(calls.length, `${tool.slug} made no SDK call`).toBe(1);
       const { ns, method } = calls[0];
-      const owner = ns === "" ? real : (real[ns] as Record<string, unknown> | undefined);
+      const owner = (ns === "" ? real : real[ns]) as Record<string, unknown> | undefined;
       const target = ns === "" ? `scavio.${method}` : `scavio.${ns}.${method}`;
       expect(typeof owner?.[method], `${tool.slug} calls missing ${target}`).toBe("function");
     }
@@ -631,7 +654,7 @@ describe("wire quirks", () => {
     expect(shapeOf(find("walmart", "WALMART_PRODUCT"))).toEqual(["product_id"]);
   });
 
-  it("Walmart dropped the params the scrape.do rebuild retired", () => {
+  it("Walmart dropped the params the rebuild retired", () => {
     const shape = shapeOf(find("walmart", "WALMART_SEARCH"));
     expect(shape).toContain("page");
     for (const gone of ["device", "delivery_zip", "store_id"]) {
@@ -719,6 +742,91 @@ describe("endpoints that must not be exposed", () => {
       "LINKEDIN_SEARCH_POSTS",
     ]) {
       expect(slugs.has(retired), `${retired} returns 410 and must not be a tool`).toBe(false);
+    }
+  });
+});
+
+describe("website map, crawl and batch", () => {
+  const JOB = "crawl_01a12d21";
+  const created = (id = JOB) => ({ data: { id, status: "queued" }, credits_used: 0 });
+  const status = (st: string, id = JOB) => ({ data: { id, status: st, results: [{ url: "https://hono.dev/docs" }], next_cursor: null } });
+  const crawlKit = () =>
+    new Map((only("crawl").tools as Tool[]).map((t) => [t.slug, t]));
+  const fast = () =>
+    new Map(
+      (buildScavioToolkit({ apiKey: "test", ...Object.fromEntries(Object.values(FLAGS).map((f) => [f, false])), enableCrawl: true, pollIntervalMs: 1 }).tools as Tool[]).map((t) => [t.slug, t])
+    );
+  const run = (t: Tool, input: Record<string, unknown>) => t.execute(input, {} as never) as Promise<any>;
+
+  it("the crawl flag registers exactly the five website tools, off by default", () => {
+    expect([...crawlKit().keys()]).toEqual(["MAP_WEBSITE", "CRAWL_WEBSITE", "CRAWL_STATUS", "BATCH_EXTRACT", "BATCH_STATUS"]);
+    expect(slugsOf(build())).not.toContain("CRAWL_WEBSITE");
+  });
+
+  it("map forwards its body to extract.map", async () => {
+    await run(crawlKit().get("MAP_WEBSITE")!, { url: "scavio.dev", limit: 5, include_paths: ["/blog/**"] });
+    expect(calls[0]).toEqual({ ns: "extract", method: "map", args: { url: "scavio.dev", limit: 5, include_paths: ["/blog/**"] } });
+  });
+
+  it("crawl with wait_seconds 0 returns the 202 without polling", async () => {
+    jobAnswers.push(created());
+    const out = await run(crawlKit().get("CRAWL_WEBSITE")!, { url: "https://hono.dev/docs", wait_seconds: 0 });
+    expect(out.data.id).toBe(JOB);
+    expect(calls).toEqual([{ ns: "extract", method: "crawl", args: { url: "https://hono.dev/docs" } }]);
+  });
+
+  it("crawl waits until completed, then reads the caller's results page", async () => {
+    jobAnswers.push(created(), status("running"), status("completed"), status("completed"));
+    const out = await run(fast().get("CRAWL_WEBSITE")!, { url: "https://hono.dev/docs", max_pages: 3, limit: 7 });
+    expect(out.data.status).toBe("completed");
+    expect(calls.map((c) => [c.method, c.args])).toEqual([
+      ["crawl", { url: "https://hono.dev/docs", max_pages: 3 }],
+      ["crawlStatus", { id: JOB, limit: 1, include_content: false }],
+      ["crawlStatus", { id: JOB, limit: 1, include_content: false }],
+      ["crawlStatus", { id: JOB, limit: 7 }],
+    ]);
+  });
+
+  it("crawl still running when the wait ends returns its id", async () => {
+    vi.useFakeTimers();
+    try {
+      jobAnswers.push(created(), ...Array.from({ length: 10 }, () => status("running")));
+      const pending = run(crawlKit().get("CRAWL_WEBSITE")!, { url: "https://hono.dev/docs", wait_seconds: 10 });
+      await vi.advanceTimersByTimeAsync(11_000);
+      const out = await pending;
+      expect(out.data.status).toBe("running");
+      // Probes at 3, 6, 9 and 10 s, then the final read with the default limit.
+      expect(calls.filter((c) => c.method === "crawlStatus")).toHaveLength(5);
+      expect(calls.at(-1)!.args).toEqual({ id: JOB, limit: 10 });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("crawl status passes the query through with a default limit", async () => {
+    await run(crawlKit().get("CRAWL_STATUS")!, { id: JOB, cursor: "25", include_content: false });
+    expect(calls[0]).toEqual({ ns: "extract", method: "crawlStatus", args: { id: JOB, cursor: "25", include_content: false, limit: 10 } });
+  });
+
+  it("batch posts urls and polls the batch job", async () => {
+    jobAnswers.push(created("batch_1"), status("completed", "batch_1"), status("completed", "batch_1"));
+    const out = await run(fast().get("BATCH_EXTRACT")!, { urls: ["https://example.com/"], mode: "normal" });
+    expect(calls[0]).toEqual({ ns: "extract", method: "batch", args: { urls: ["https://example.com/"], mode: "normal" } });
+    expect(calls.at(-1)).toEqual({ ns: "extract", method: "batchStatus", args: { id: "batch_1", limit: 10 } });
+    expect(out.data.id).toBe("batch_1");
+  });
+
+  it("batch status reads the batch job", async () => {
+    await run(crawlKit().get("BATCH_STATUS")!, { id: "batch_1" });
+    expect(calls[0]).toEqual({ ns: "extract", method: "batchStatus", args: { id: "batch_1", limit: 10 } });
+  });
+
+  it("descriptions never name the fetch method", () => {
+    for (const tool of build({ all: true }).tools as Tool[]) {
+      const text = (tool.description ?? "").toLowerCase();
+      for (const word of ["proxy", "proxies", "residential", "datacenter", "headless", "browser"]) {
+        expect(text.includes(word), `${tool.slug}: ${word}`).toBe(false);
+      }
     }
   });
 });

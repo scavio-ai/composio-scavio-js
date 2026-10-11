@@ -7,7 +7,8 @@
  * Yelp, Indeed, Glassdoor, the Apple App Store, Google Play, SEC EDGAR, Companies
  * House, G2, Capterra, Google Ads Transparency and the Meta Ad Library - plus a
  * top-level extract() that reads any URL as Markdown, plain text or raw HTML.
- * This toolkit exposes every live endpoint of all of them (189 tools). Build it
+ * This toolkit exposes every live endpoint of all of them (189 tools), plus five
+ * opt-in website tools (map, crawl, batch) behind enableCrawl. Build it
  * with `buildScavioToolkit()` and bind it to a session:
  *
  *   import { Composio } from "@composio/core";
@@ -69,6 +70,16 @@ export interface BuildScavioToolkitOptions {
   enableCapterra?: boolean;
   enableGoogleAds?: boolean;
   enableMetaAds?: boolean;
+  /**
+   * Website map, crawl and batch extract (five tools: MAP_WEBSITE, CRAWL_WEBSITE,
+   * CRAWL_STATUS, BATCH_EXTRACT, BATCH_STATUS). Opt-in: a crawl bills per page.
+   */
+  enableCrawl?: boolean;
+  /**
+   * Milliseconds between progress polls while CRAWL_WEBSITE or BATCH_EXTRACT
+   * waits for its job. Default 3000.
+   */
+  pollIntervalMs?: number;
   /** Register every tool, ignoring the individual flags. */
   all?: boolean;
 }
@@ -106,6 +117,94 @@ const device = ostr("Device to emulate: 'desktop' or 'mobile'.");
 const currency = ostr("Currency code (ISO 4217, e.g. 'USD').");
 const checkInDate = str("Check-in date (YYYY-MM-DD).");
 const checkOutDate = str("Check-out date (YYYY-MM-DD).");
+
+// Website map, crawl and batch: the multi-page members of the Extract family.
+//
+// Map answers in one call. Crawl and batch are background jobs: the start tools
+// post the job, then wait up to wait_seconds (default 45, max 300) for it to
+// finish, polling progress without page content, and return the job's status
+// with its first page of results either way. A job still running when the wait
+// ends keeps going server-side; read the rest with the matching status tool.
+// Cancellation, webhooks and idempotency keys are in the SDK, not tools.
+const JOB_POLL_INTERVAL_MS = 3_000;
+const JOB_WAIT_DEFAULT_SECONDS = 45;
+const JOB_WAIT_MAX_SECONDS = 300;
+const JOB_RESULTS_DEFAULT_LIMIT = 10;
+const JOB_TERMINAL = new Set(["completed", "failed", "cancelled"]);
+
+type JobQuery = {
+  cursor?: string;
+  limit?: number;
+  status?: "succeeded" | "failed" | "skipped";
+  include_content?: boolean;
+};
+type JobPayload = { data?: { id?: string; status?: string } } & Record<string, unknown>;
+type JobStatusFn = (id: string, query: JobQuery) => Promise<unknown>;
+
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+/** Poll a job (content-free) until it finishes or the wait runs out, then read one results page. */
+async function waitForJob(
+  status: JobStatusFn,
+  id: string,
+  waitSeconds: number,
+  pollMs: number,
+  query: JobQuery
+): Promise<Record<string, unknown>> {
+  const deadline = Date.now() + Math.max(0, Math.min(waitSeconds, JOB_WAIT_MAX_SECONDS)) * 1000;
+  for (;;) {
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) break;
+    await sleep(Math.min(pollMs, remaining));
+    const probe = (await status(id, { limit: 1, include_content: false })) as JobPayload;
+    if (JOB_TERMINAL.has(String(probe?.data?.status))) break;
+  }
+  return (await status(id, query)) as Record<string, unknown>;
+}
+
+/** Start a job, then wait for it (bounded). wait_seconds 0 returns the 202 payload. */
+async function startAndWait(
+  start: (body: Record<string, unknown>) => Promise<unknown>,
+  status: JobStatusFn,
+  input: Record<string, unknown>,
+  pollMs: number
+): Promise<Record<string, unknown>> {
+  const { wait_seconds, limit, include_content, ...body } = input as Record<string, unknown> & {
+    wait_seconds?: number;
+    limit?: number;
+    include_content?: boolean;
+  };
+  const created = (await start(body)) as JobPayload;
+  const id = created?.data?.id;
+  const wait = wait_seconds ?? JOB_WAIT_DEFAULT_SECONDS;
+  if (!id || wait <= 0) return created;
+  const query: JobQuery = { limit: limit ?? JOB_RESULTS_DEFAULT_LIMIT };
+  if (include_content !== undefined) query.include_content = include_content;
+  return waitForJob(status, id, wait, pollMs, query);
+}
+
+const JOB_MODE = ostr(
+  "Fetch tier, and the price-bearing parameter: 'normal' is the standard fetch, 'advanced' renders JavaScript-built pages, 'ultra' reaches the hardest pages. Server default 'normal'."
+);
+const JOB_PATHS =
+  "Path globs (max 20). '*' matches within one path segment, '**' across segments; a pattern without wildcards matches that path and everything under it. Example: ['/blog/**'].";
+const JOB_PRICE =
+  "Billed per SUCCESSFUL page at Extract's price for the mode: 'normal' and 'advanced' 1 credit, 'ultra' 2 credits. Failed and skipped pages are free, and if the balance runs out the job stops cleanly.";
+const JOB_FORMAT = ostr("Format for each page, as on extract: 'html', 'markdown' or 'text' (server default 'markdown').");
+const JOB_WAIT = onum(
+  "Seconds to wait for the job to finish before returning, 0-300 (default 45). 0 returns the job id at once. A job still running when the wait ends keeps going; read it later with its status tool."
+);
+const JOB_LIMIT = onum(
+  "Results per response, 1-100 (default 10, to keep page content inside the context window); page on with next_cursor."
+);
+const JOB_INCLUDE_CONTENT = obool("Set false to list results without their page content (default true).");
+const JOB_STATUS_PARAMS = z.object({
+  id: str("Job id returned when the job was started (data.id)."),
+  cursor: ostr("next_cursor from the previous response, to read the next page."),
+  limit: JOB_LIMIT,
+  status: ostr("Only results with this status: 'succeeded', 'failed' or 'skipped'."),
+  include_content: JOB_INCLUDE_CONTENT,
+});
 
 /**
  * Build a Composio custom toolkit exposing Scavio search tools.
@@ -150,6 +249,8 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
     enableCapterra = false,
     enableGoogleAds = false,
     enableMetaAds = false,
+    enableCrawl = false,
+    pollIntervalMs = JOB_POLL_INTERVAL_MS,
     all = false,
   } = options;
 
@@ -465,7 +566,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
     );
   }
 
-  // Walmart runs on the scrape.do rebuild: device, delivery_zip and store_id
+  // Walmart was rebuilt: device, delivery_zip and store_id
   // never existed on it, start_page is now page, and it is BODY-PRICED - 1 credit
   // on domain com/ca, 2 on com.mx, so search and category alone carry a domain.
   if (all || enableWalmart) {
@@ -2587,9 +2688,103 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
         z.object({
           url: str("Page to read (1-2048 characters). http(s) only; a bare host is upgraded to https, and loopback, private, link-local and metadata hosts are rejected with a 400."),
           format: ostr("Output format: 'html' is the raw page, 'markdown' a readability extraction, 'text' that markdown flattened to plain text (server default 'markdown')."),
-          mode: ostr("Fetch tier, and the price-bearing parameter: 'normal' plain datacenter fetch (1 credit), 'advanced' full browser render (1 credit), 'ultra' the hardest-target tier (2 credits). Server default 'normal'."),
+          mode: ostr("Fetch tier, and the price-bearing parameter: 'normal' is the standard fetch (1 credit), 'advanced' renders JavaScript-built pages (1 credit), 'ultra' reaches the hardest pages (2 credits). Server default 'normal'."),
         }),
         (i) => client.extract(i as SdkOpts<typeof client.extract>)
+      )
+    );
+  }
+
+  // Website map, crawl and batch. Opt-in: a crawl bills per page.
+  if (all || enableCrawl) {
+    const crawlStatus: JobStatusFn = (id, q) => client.extract.crawlStatus(id, q);
+    const batchStatus: JobStatusFn = (id, q) => client.extract.batchStatus(id, q);
+    const readStatus =
+      (status: JobStatusFn) =>
+      async ({ id, limit, ...q }: z.infer<typeof JOB_STATUS_PARAMS>) =>
+        (await status(id, {
+          ...(q as JobQuery),
+          limit: limit ?? JOB_RESULTS_DEFAULT_LIMIT,
+        })) as Record<string, unknown>;
+    tools.push(
+      tool(
+        "MAP_WEBSITE",
+        "Scavio Map Website",
+        "List a website's page URLs, gathered from its sitemaps and its start page, deduplicated, filtered by path or search words and limited: { url, links: [{ url, source, lastmod }], total_found, returned, truncated }. Pages the site's robots.txt disallows are left out. Use it to find the right pages before extracting or crawling. Costs 1 credit in normal mode; advanced costs up to 2 credits and ultra up to 10, priced by what the call needed.",
+        z.object({
+          url: str("The site to map. A bare host is upgraded to https."),
+          search: ostr("Only return URLs containing every word of this text (case-insensitive)."),
+          limit: onum("Maximum links to return, 1-5000. Default 1000 (or the plan's limit if lower: Free 500, PAYG 1,000, paid plans 5,000)."),
+          sitemap: ostr("'include' combines the site's sitemaps with the start page's links (default); 'only' uses sitemaps alone; 'skip' uses page links alone."),
+          include_subdomains: obool("Also return URLs on subdomains of the site (default false)."),
+          include_paths: oarrstr("Keep only URLs matching these. " + JOB_PATHS),
+          exclude_paths: oarrstr("Drop URLs matching these. " + JOB_PATHS),
+          ignore_query_parameters: obool("Treat URLs that differ only by query string as one URL (default true)."),
+          mode: JOB_MODE,
+        }),
+        async (i) =>
+          (await client.extract.map(i as SdkOpts<typeof client.extract.map>)) as unknown as Record<string, unknown>
+      ),
+      tool(
+        "CRAWL_WEBSITE",
+        "Scavio Crawl Website",
+        "Crawl a website from one start URL: same-site pages are discovered and extracted breadth-first within the page, depth and path limits, each returned as Markdown, text or HTML. Pages the site's robots.txt disallows are skipped. Waits up to wait_seconds (default 45) and returns { id, status, pages, credits_used, results, next_cursor }; if status is still queued or running, call LOCAL_SCAVIO_CRAWL_STATUS with the id later. " + JOB_PRICE,
+        z.object({
+          url: str("Where the crawl starts. Only pages on the same site are crawled."),
+          max_pages: onum("Maximum pages to fetch. Default 100. Plan limits: Free 10, PAYG 100, Project 500, Bootstrap 2,000, Startup 5,000, Growth 10,000."),
+          max_depth: onum("How many links away from the start page to follow, 0-10 (default 3). 0 fetches only the start page."),
+          include_paths: oarrstr("Crawl only paths matching these. " + JOB_PATHS),
+          exclude_paths: oarrstr("Skip paths matching these. " + JOB_PATHS),
+          allow_subdomains: obool("Also crawl subdomains of the site (default false)."),
+          ignore_query_parameters: obool("Treat URLs that differ only by query string as one page (default true)."),
+          sitemap: ostr("'include' also starts from the site's sitemap (default); 'skip' follows links only; 'only' fetches sitemap pages without following links."),
+          format: JOB_FORMAT,
+          mode: JOB_MODE,
+          wait_seconds: JOB_WAIT,
+          limit: JOB_LIMIT,
+          include_content: JOB_INCLUDE_CONTENT,
+        }),
+        (i) =>
+          startAndWait(
+            (body) => client.extract.crawl(body as SdkOpts<typeof client.extract.crawl>),
+            crawlStatus,
+            i,
+            pollIntervalMs
+          )
+      ),
+      tool(
+        "CRAWL_STATUS",
+        "Scavio Crawl Status",
+        "Read a crawl's progress and its page results by job id, paged by cursor: { status, stopped_reason, pages, credits_used, results: [{ url, status, content }], next_cursor }. Results are kept for 3 days after the crawl finishes. Free: reading a job costs no credits.",
+        JOB_STATUS_PARAMS,
+        readStatus(crawlStatus)
+      ),
+      tool(
+        "BATCH_EXTRACT",
+        "Scavio Batch Extract",
+        "Extract a list of URLs (up to 1,000, plan-limited) in one job, each returned as Markdown, text or HTML exactly like LOCAL_SCAVIO_EXTRACT. Waits up to wait_seconds (default 45) and returns { id, status, pages, credits_used, results, next_cursor }; if status is still queued or running, call LOCAL_SCAVIO_BATCH_STATUS with the id later. " + JOB_PRICE,
+        z.object({
+          urls: arrstr("The pages to extract (duplicates removed). Plan limits: Free 10, PAYG 50, Project 100, Bootstrap 500, Startup and Growth 1,000."),
+          format: JOB_FORMAT,
+          mode: JOB_MODE,
+          wait_seconds: JOB_WAIT,
+          limit: JOB_LIMIT,
+          include_content: JOB_INCLUDE_CONTENT,
+        }),
+        (i) =>
+          startAndWait(
+            (body) => client.extract.batch(body as SdkOpts<typeof client.extract.batch>),
+            batchStatus,
+            i,
+            pollIntervalMs
+          )
+      ),
+      tool(
+        "BATCH_STATUS",
+        "Scavio Batch Status",
+        "Read a batch extract's progress and its page results by job id, paged by cursor: { status, pages, credits_used, results: [{ url, status, content }], next_cursor }. Results are kept for 3 days after the batch finishes. Free: reading a job costs no credits.",
+        JOB_STATUS_PARAMS,
+        readStatus(batchStatus)
       )
     );
   }
@@ -2597,7 +2792,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
   return experimental_createToolkit("SCAVIO", {
     name: "Scavio",
     description:
-      "Real-time structured search over 31 platforms - Google (SERP, AI Mode, Maps, Shopping, Flights, Hotels, News, Trends), YouTube, Amazon, Walmart, eBay, Target, Home Depot, Reddit, TikTok, TikTok Shop, Instagram, X, LinkedIn, Threads, Kuaishou, Zillow, Redfin, Booking.com, Airbnb, Tripadvisor, Yelp, Indeed, Glassdoor, the Apple App Store, Google Play, SEC EDGAR, Companies House, G2, Capterra, Google Ads Transparency and the Meta Ad Library - plus extract, which reads any URL as Markdown, plain text or raw HTML.",
+      "Real-time structured search over 31 platforms - Google (SERP, AI Mode, Maps, Shopping, Flights, Hotels, News, Trends), YouTube, Amazon, Walmart, eBay, Target, Home Depot, Reddit, TikTok, TikTok Shop, Instagram, X, LinkedIn, Threads, Kuaishou, Zillow, Redfin, Booking.com, Airbnb, Tripadvisor, Yelp, Indeed, Glassdoor, the Apple App Store, Google Play, SEC EDGAR, Companies House, G2, Capterra, Google Ads Transparency and the Meta Ad Library - plus extract, which reads any URL as Markdown, plain text or raw HTML, and website map, crawl and batch extract.",
     tools,
   });
 }
