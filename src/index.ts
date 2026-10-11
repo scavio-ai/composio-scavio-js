@@ -730,7 +730,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
       tool(
         "YOUTUBE_TRANSCRIPT",
         "Scavio YouTube Transcript",
-        "Fetch the transcript or timed captions for a YouTube video. Costs 8 credits.",
+        "Fetch the transcript or timed captions for a YouTube video. Costs 5 credits.",
         z.object({
           video_id: str("YouTube video id or a full watch URL."),
           language: ostr("Caption language code (default 'en')."),

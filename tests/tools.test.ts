@@ -218,14 +218,14 @@ const CREDITS: Record<string, number> = {
   AMAZON_SEARCH: 1,
   AMAZON_PRODUCT: 1,
   AMAZON_OFFERS: 1,
-  // YouTube: search and shorts 2, transcript 8, streams 3, everything else 1.
+  // YouTube: search and shorts 2, transcript 5, streams 3, everything else 1.
   YOUTUBE_SEARCH: 2,
   YOUTUBE_SHORTS: 2,
   YOUTUBE_SUGGESTIONS: 1,
   YOUTUBE_VIDEO: 1,
   YOUTUBE_COMMENTS: 1,
   YOUTUBE_COMMENT_REPLIES: 1,
-  YOUTUBE_TRANSCRIPT: 8,
+  YOUTUBE_TRANSCRIPT: 5,
   YOUTUBE_RELATED: 1,
   YOUTUBE_CHANNEL_SEARCH: 1,
   YOUTUBE_CHANNEL: 1,

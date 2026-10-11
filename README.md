@@ -221,7 +221,7 @@ Every tool states its cost in its description. Most endpoints cost 1 credit.
 | eBay, Target, Zillow, Booking.com, Airbnb, Glassdoor, App Store, SEC EDGAR, Redfin, Companies House, Google Ads, Meta Ads | 1 |
 | Home Depot, Tripadvisor, Indeed, Yelp, Google Play, Capterra | 2 |
 | G2 | 5 |
-| YouTube | 1, except search 2, shorts 2, streams 3, transcript 8 |
+| YouTube | 1, except search 2, shorts 2, streams 3, transcript 5 |
 | Instagram | 10, except post 8, comment replies 8, user posts 2 |
 | LinkedIn | 1 for person, person about, company, post; 10 for person posts, company posts, search jobs, post comments; **30 for job** (the most expensive endpoint in the API) |
 
