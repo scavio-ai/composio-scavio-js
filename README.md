@@ -31,7 +31,7 @@ Scavio is a single Search API over 31 platforms -- Google, YouTube, Amazon, Walm
 > result offset, not a page number** (0 is page 1, 10 is page 2), and there is no
 > `page` argument mapped onto it -- a silent remap fetches the wrong page.
 
-> **Amazon changed (breaking).** The upstream provider moved in 2026-07:
+> **Amazon changed (breaking).** The Amazon endpoint changed in 2026-07:
 > `domain` is replaced by `country`, a two-letter marketplace code (`us`, `gb`
 > -- the UK is `gb`, not `uk` -- `de`, `jp`, ...), and `sort_by`, `pages`,
 > `category_id`, `merchant_id`, `language`, `currency`, `device`, `zip_code`

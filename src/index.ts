@@ -1421,7 +1421,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
       tool(
         "LINKEDIN_PERSON_ABOUT",
         "Scavio LinkedIn Person About",
-        "The about-only slice of a LinkedIn profile: about, headline, education_summary, experiences, educations, honors_and_awards and bio_links. Same upstream call as LINKEDIN_PERSON, shaped down. Costs 1 credit.",
+        "The about-only slice of a LinkedIn profile: about, headline, education_summary, experiences, educations, honors_and_awards and bio_links. Same lookup as LINKEDIN_PERSON, shaped down. Costs 1 credit.",
         z.object({
           username: ostr("Public identifier / vanity handle. Provide this or url."),
           url: ostr("Full LinkedIn profile URL. Provide this or username."),
@@ -1729,7 +1729,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
           query: ostr("Keyword to search (1-500 characters). Optional: a seller-only search pages that seller's whole catalogue."),
           seller: ostr("Restrict results to one seller's listings (1-64 characters), as in ebay.com/usr/<name>. Can be sent with no query."),
           page: onum("Results page, 1-based."),
-          sort_by: ostr("Result sort order. Defaults to 'best_match'. eBay's 'Distance: nearest first' is deliberately unsupported (it ranks against our proxy exit, not the caller). Accepted values: 'best_match', 'ending_soonest', 'newly_listed', 'price_low', 'price_high'."),
+          sort_by: ostr("Result sort order. Defaults to 'best_match'. eBay's 'Distance: nearest first' is deliberately unsupported (it would not rank by the location of the caller). Accepted values: 'best_match', 'ending_soonest', 'newly_listed', 'price_low', 'price_high'."),
           min_price: onum("Minimum price, inclusive. Must be 0 or greater."),
           max_price: onum("Maximum price, inclusive. Must be 0 or greater."),
           condition: ostr("Item condition filter. 'refurbished' is eBay's parent condition, not one of its three graded tiers. Accepted values: 'new', 'open_box', 'refurbished', 'used', 'for_parts'."),
@@ -1936,7 +1936,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
           adults: onum("Adult guests, >= 1 (default 2)."),
           children_ages: oarrnum("AGES of accompanying children, each 0-17, max 10 entries. Ages, not a count."),
           rooms: onum("Rooms required, >= 1 (default 1)."),
-          currency: ostr("ISO 4217 currency for prices, 3 letters (default 'USD'). Without it Booking prices off the proxy exit and identical requests disagree."),
+          currency: ostr("ISO 4217 currency for prices, 3 letters (default 'USD'). Without it Booking picks a currency itself and identical requests can disagree."),
         }),
         (i) => client.booking.search(i as SdkOpts<typeof client.booking.search>)
       ),
@@ -1952,7 +1952,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
           adults: onum("Adult guests, >= 1 (default 2)."),
           children_ages: oarrnum("AGES of accompanying children, each 0-17, max 10 entries. Ages, not a count."),
           rooms: onum("Rooms required, >= 1 (default 1)."),
-          currency: ostr("ISO 4217 currency for prices, 3 letters (default 'USD'). Without it Booking prices off the proxy exit and identical requests disagree."),
+          currency: ostr("ISO 4217 currency for prices, 3 letters (default 'USD'). Without it Booking picks a currency itself and identical requests can disagree."),
         }),
         (i) => client.booking.hotel(i as SdkOpts<typeof client.booking.hotel>)
       ),
@@ -2103,7 +2103,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
           guest_favorite: obool("Guest Favorite listings only."),
           free_cancellation: obool("Listings with free cancellation only."),
           amenities: ostr("Comma-separated amenities (1-200 characters): wifi, air_conditioning, pool, kitchen, free_parking, washer, self_check_in, tv, or raw numeric Airbnb amenity ids. An unrecognised NAME is rejected before the scrape."),
-          currency: ostr("ISO 4217 currency for prices, 3 letters (default 'USD'). Without it Airbnb prices off the proxy exit and identical requests disagree."),
+          currency: ostr("ISO 4217 currency for prices, 3 letters (default 'USD'). Without it Airbnb picks a currency itself and identical requests can disagree."),
           page: onum("Results page, 1-based. 18 listings per page. Cannot be combined with cursor."),
           cursor: ostr("next_cursor from a previous response (1-500 characters); wins over page, so sending both is rejected."),
         }),
@@ -2168,7 +2168,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
         "Scavio Glassdoor Reviews",
         "Up to THREE full Glassdoor reviews - the cap is Glassdoor's login wall - with per-axis scores, pros, cons, advice, job title, location, employment status and employer response, plus complete rating statistics, star distribution, aggregate pro/con highlight terms and per-job-title review counts. There is no page param: move the window with category and employment_status. Provide employer_id or url. Costs 1 credit.",
         z.object({
-          employer_id: ostr("Glassdoor employer id (1-50 characters): '1699', 'E1699' or 'IE1699'. Must be a STRING - a JSON number is rejected. Addressing by id costs two upstream fetches; the customer price is unchanged."),
+          employer_id: ostr("Glassdoor employer id (1-50 characters): '1699', 'E1699' or 'IE1699'. Must be a STRING - a JSON number is rejected. Addressing by id takes an extra lookup; the customer price is unchanged."),
           company: ostr("Employer name as it appears in a Glassdoor slug (1-200 characters). COSMETIC: ignored when url is set, and it does not satisfy the employer_id-or-url requirement."),
           url: ostr("Any glassdoor.com employer URL (1-500 characters). Pass back reviews_url from company() to skip the resolve fetch. A non-glassdoor.com host is rejected."),
           category: ostr("Restrict to reviews Glassdoor files under one topic. Closed enum: Glassdoor IGNORES an unknown value and serves the unfiltered set under a 200. Read filtered_review_count on the response to see how many match. Accepted values: 'career_development', 'compensation', 'culture', 'diversity_and_inclusion', 'management', 'work_life_balance'."),
@@ -2181,7 +2181,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
         "Scavio Glassdoor Salaries",
         "Glassdoor salaries by job title, 10 titles per page: base-pay and total-pay percentiles P10-P90 with medians called out, sample counts, currency, pay period and last-reported date. The figures are Glassdoor's ESTIMATES for the title, not individual reported salaries. Provide employer_id or url. Costs 1 credit.",
         z.object({
-          employer_id: ostr("Glassdoor employer id (1-50 characters): '1699', 'E1699' or 'IE1699'. Must be a STRING - a JSON number is rejected. Addressing by id costs two upstream fetches; the customer price is unchanged."),
+          employer_id: ostr("Glassdoor employer id (1-50 characters): '1699', 'E1699' or 'IE1699'. Must be a STRING - a JSON number is rejected. Addressing by id takes an extra lookup; the customer price is unchanged."),
           company: ostr("Employer name as it appears in a Glassdoor slug (1-200 characters). COSMETIC: ignored when url is set, and it does not satisfy the employer_id-or-url requirement."),
           url: ostr("Any glassdoor.com employer URL (1-500 characters). Pass back salaries_url from company() to skip the resolve fetch. A non-glassdoor.com host is rejected."),
           page: onum("Results page, 1-based. Ten job titles per page; page_count on the response is how many pages exist."),
@@ -2199,7 +2199,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
         "Businesses in Yelp's ranked order: rating, review count, price band, categories, address, contact rails, hours, photos and a review snippet; every row carries both business_id and alias. Yelp fixes the page size at 10. Provide term and location, or url. Costs 2 credits.",
         z.object({
           term: ostr("What to look for (1-200 characters): a category ('plumbers'), a dish, or a business name. Required together with location unless url is given."),
-          location: ostr("Where to look (1-200 characters): city and region, a full address, or a postcode. Effectively required - Yelp geolocates a location-less search off the proxy exit, so the same request answers about a different metro run to run."),
+          location: ostr("Where to look (1-200 characters): city and region, a full address, or a postcode. Effectively required - without it Yelp picks a location itself, so the same request can answer about a different metro run to run."),
           page: onum("Results page, 1-based. Yelp fixes the page size at 10."),
           sort: ostr("Result ordering (upstream default 'recommended'). Closed enum: Yelp IGNORES an unrecognised sortby and serves default ranking under a 200, billing a premium scrape for a sort that never ran. Accepted values: 'recommended', 'rating', 'review_count'."),
           price: oarrnum("Price bands to include, 1 ($) to 4 ($$$$); 1-4 values, combined freely - [1, 2] means $ or $$. Accepted values: 1, 2, 3, 4."),
