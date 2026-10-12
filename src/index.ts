@@ -1155,7 +1155,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
       tool(
         "INSTAGRAM_PROFILE",
         "Scavio Instagram Profile",
-        "Fetch an Instagram profile by username or user id. Costs 10 credits.",
+        "Fetch an Instagram profile by username or user id. Costs 1 credit.",
         z.object({
           username: ostr("Instagram username. Provide this or user_id."),
           user_id: ostr("Instagram user id. Provide this or username."),
@@ -1165,7 +1165,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
       tool(
         "INSTAGRAM_USER_POSTS",
         "Scavio Instagram User Posts",
-        "List an Instagram user's posts. Costs 2 credits, the cheapest Instagram endpoint.",
+        "List an Instagram user's posts. Costs 2 credits per page.",
         z.object({
           username: ostr("Instagram username. Provide this or user_id."),
           user_id: ostr("Instagram user id. Provide this or username."),
@@ -1177,7 +1177,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
       tool(
         "INSTAGRAM_USER_REELS",
         "Scavio Instagram User Reels",
-        "List an Instagram user's reels. Costs 10 credits.",
+        "List an Instagram user's reels. Costs 1 credit (2 the first time a username is looked up).",
         z.object({
           username: ostr("Instagram username. Provide this or user_id."),
           user_id: ostr("Instagram user id. Provide this or username."),
@@ -1189,7 +1189,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
       tool(
         "INSTAGRAM_USER_TAGGED",
         "Scavio Instagram User Tagged",
-        "List posts an Instagram user is tagged in. Costs 10 credits.",
+        "List posts an Instagram user is tagged in. Costs 1 credit (2 the first time a username is looked up).",
         z.object({
           username: ostr("Instagram username. Provide this or user_id."),
           user_id: ostr("Instagram user id. Provide this or username."),
@@ -1201,7 +1201,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
       tool(
         "INSTAGRAM_USER_STORIES",
         "Scavio Instagram User Stories",
-        "Fetch an Instagram user's current stories. Costs 10 credits.",
+        "Fetch an Instagram user's current stories. Costs 2 credits.",
         z.object({
           username: ostr("Instagram username. Provide this or user_id."),
           user_id: ostr("Instagram user id. Provide this or username."),
@@ -1211,7 +1211,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
       tool(
         "INSTAGRAM_POST",
         "Scavio Instagram Post",
-        "Fetch an Instagram post by URL, media id, or shortcode. Costs 8 credits.",
+        "Fetch an Instagram post by URL, media id, or shortcode. Costs 2 credits.",
         z.object({
           url: ostr("Post URL. Provide one of url, media_id, or shortcode."),
           media_id: ostr("Post media id. Provide one of url, media_id, or shortcode."),
@@ -1222,7 +1222,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
       tool(
         "INSTAGRAM_POST_COMMENTS",
         "Scavio Instagram Post Comments",
-        "List comments on an Instagram post by shortcode or URL. Costs 10 credits.",
+        "List comments on an Instagram post by shortcode or URL. Costs 2 credits per page.",
         z.object({
           shortcode: ostr("Post shortcode. Provide this or url."),
           url: ostr("Post URL. Provide this or shortcode."),
@@ -1234,7 +1234,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
       tool(
         "INSTAGRAM_COMMENT_REPLIES",
         "Scavio Instagram Comment Replies",
-        "List replies to an Instagram post comment. Costs 8 credits.",
+        "List replies to an Instagram post comment. Costs 2 credits.",
         z.object({
           media_id: str("Post media id."),
           comment_id: str("Parent comment id."),
@@ -1245,7 +1245,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
       tool(
         "INSTAGRAM_SEARCH_USERS",
         "Scavio Instagram Search Users",
-        "Search Instagram users by keyword. Costs 10 credits.",
+        "Search Instagram users by keyword. Costs 2 credits; a request with a cursor costs 8.",
         z.object({
           keyword: str("Search keyword."),
           cursor: ostr("Pagination cursor."),
@@ -1255,7 +1255,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
       tool(
         "INSTAGRAM_SEARCH_HASHTAGS",
         "Scavio Instagram Search Hashtags",
-        "Search Instagram hashtags by keyword. Costs 10 credits.",
+        "Search Instagram hashtags by keyword. Costs 2 credits; a request with a cursor costs 8.",
         z.object({
           keyword: str("Search keyword."),
           cursor: ostr("Pagination cursor."),
@@ -1265,7 +1265,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
       tool(
         "INSTAGRAM_USER_FOLLOWERS",
         "Scavio Instagram User Followers",
-        "List an Instagram user's followers. Costs 10 credits.",
+        "List an Instagram user's followers. Costs 2 credits per page.",
         z.object({
           username: ostr("Instagram username. Provide this or user_id."),
           user_id: ostr("Instagram user id. Provide this or username."),
@@ -1277,7 +1277,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
       tool(
         "INSTAGRAM_USER_FOLLOWINGS",
         "Scavio Instagram User Followings",
-        "List the accounts an Instagram user follows. Costs 10 credits.",
+        "List the accounts an Instagram user follows. Costs 2 credits per page.",
         z.object({
           username: ostr("Instagram username. Provide this or user_id."),
           user_id: ostr("Instagram user id. Provide this or username."),
