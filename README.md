@@ -2,7 +2,7 @@
 
 [Scavio](https://scavio.dev) real-time search tools for [Composio](https://composio.dev) (TypeScript).
 
-Scavio is a single Search API over 31 platforms -- Google, YouTube, Amazon, Walmart, eBay, Target, Home Depot, Reddit, TikTok, TikTok Shop, Instagram, X, LinkedIn, Threads, Kuaishou, Zillow, Redfin, Booking.com, Airbnb, Tripadvisor, Yelp, Indeed, Glassdoor, the Apple App Store, Google Play, SEC EDGAR, Companies House, G2, Capterra, Google Ads Transparency and the Meta Ad Library -- plus `extract`, which reads any URL as Markdown, plain text or raw HTML. This package exposes **194 tools** -- one per live endpoint plus five website tools that map, crawl and batch-extract whole sites -- as a Composio custom toolkit so your agents can pull structured, up-to-date results across any Composio-supported framework.
+Scavio is a single Search API over 31 platforms -- Google, YouTube, Amazon, Walmart, eBay, Target, Home Depot, Reddit, TikTok, TikTok Shop, Instagram, X, LinkedIn, Threads, Kuaishou, Zillow, Redfin, Booking.com, Airbnb, Tripadvisor, Yelp, Indeed, Glassdoor, the Apple App Store, Google Play, SEC EDGAR, Companies House, G2, Capterra, Google Ads Transparency and the Meta Ad Library -- plus `extract`, which reads any URL as Markdown, plain text or raw HTML. This package exposes **195 tools** -- one per live endpoint plus five website tools that map, crawl and batch-extract whole sites -- as a Composio custom toolkit so your agents can pull structured, up-to-date results across any Composio-supported framework.
 
 > **New in 0.5.0: website map, crawl and batch.** Five opt-in tools behind
 > `enableCrawl` -- see [Map, crawl and batch](#map-crawl-and-batch). Needs
@@ -122,7 +122,7 @@ All tools are grouped under the `SCAVIO` custom toolkit; agent-facing slugs are 
 | Threads | `enableThreads` | 6 | profile, user posts, user replies, post, post comments, search users |
 | Kuaishou (China) | `enableKuaishou` | 14 | profile, user posts, user live, user resolve, video, video comments, comment replies, videos batch, search, search videos, search users, search live, tag feed, trending |
 | eBay | `enableEbay` | 3 | search, product, seller |
-| Target | `enableTarget` | 4 | search, category, product, reviews |
+| Target | `enableTarget` | 5 | search, category, product, reviews, availability |
 | Home Depot | `enableHomeDepot` | 3 | search, product, reviews |
 | Zillow | `enableZillow` | 3 | search, property, agent reviews |
 | Booking.com | `enableBooking` | 3 | search, hotel, reviews |
@@ -141,7 +141,7 @@ All tools are grouped under the `SCAVIO` custom toolkit; agent-facing slugs are 
 | Google Ads Transparency | `enableGoogleAds` | 3 | advertisers, search, creative |
 | Meta Ad Library | `enableMetaAds` | 3 | search, advertiser, ad |
 | Website map, crawl, batch | `enableCrawl` | 5 | map website, crawl website, crawl status, batch extract, batch status |
-| **Total** | | **194** | |
+| **Total** | | **195** | |
 
 Two endpoints are deliberately not exposed:
 

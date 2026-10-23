@@ -114,7 +114,7 @@ const EXPECTED_COUNTS: Record<string, number> = {
   threads: 6,
   kuaishou: 14,
   ebay: 3,
-  target: 4,
+  target: 5,
   homeDepot: 3,
   zillow: 3,
   booking: 3,
@@ -395,7 +395,7 @@ beforeEach(() => {
 describe("coverage", () => {
   it("registers every live Scavio endpoint exactly once", () => {
     const slugs = slugsOf(build({ all: true }));
-    expect(slugs.length).toBe(194);
+    expect(slugs.length).toBe(195);
     expect(new Set(slugs).size).toBe(slugs.length);
   });
 
@@ -403,7 +403,7 @@ describe("coverage", () => {
     const actual: Record<string, number> = {};
     for (const ns of Object.keys(EXPECTED_COUNTS)) actual[ns] = only(ns).tools.length;
     expect(actual).toEqual(EXPECTED_COUNTS);
-    expect(Object.values(actual).reduce((a, b) => a + b, 0)).toBe(194);
+    expect(Object.values(actual).reduce((a, b) => a + b, 0)).toBe(195);
   });
 
   it("covers all 31 platforms", () => {

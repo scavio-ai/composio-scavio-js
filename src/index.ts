@@ -1773,7 +1773,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
           page: onum("Results page, 1-based."),
           count: onum("Results per page, 1-28. Defaults to 24; Target rejects anything above 28 outright."),
           sort: ostr("Result sort order. Defaults to 'relevance'. Accepted values: 'relevance', 'featured', 'price_low', 'price_high', 'rating_high', 'best_seller', 'newest'."),
-          store_id: ostr("Numeric Target store id whose prices and availability the response reflects. Defaults to '3991', the store target.com uses with no store context."),
+          store_id: ostr("Numeric Target store id whose prices the response reflects. Defaults to '3991', the store target.com uses with no store context."),
         }),
         (i) => client.target.search(i as SdkOpts<typeof client.target.search>)
       ),
@@ -1786,7 +1786,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
           page: onum("Results page, 1-based."),
           count: onum("Results per page, 1-28. Defaults to 24; Target rejects anything above 28 outright."),
           sort: ostr("Result sort order. Defaults to 'relevance'. Accepted values: 'relevance', 'featured', 'price_low', 'price_high', 'rating_high', 'best_seller', 'newest'."),
-          store_id: ostr("Numeric Target store id whose prices and availability the response reflects. Defaults to '3991'."),
+          store_id: ostr("Numeric Target store id whose prices the response reflects. Defaults to '3991'."),
         }),
         (i) => client.target.category(i as SdkOpts<typeof client.target.category>)
       ),
@@ -1796,7 +1796,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
         "Target product details by TCIN: price, rating, images, specifications, variants, return policy, fulfillment. seller_id/seller_name are null for stock sold by Target. Costs 1 credit.",
         z.object({
           tcin: str("Target catalog id (tcin, e.g. '1010453160'). A colour/size child tcin is answered by its variation parent, with the child present in 'variants'."),
-          store_id: ostr("Numeric Target store id whose prices and availability the response reflects. Defaults to '3991'."),
+          store_id: ostr("Numeric Target store id whose prices the response reflects. Defaults to '3991'."),
         }),
         (i) => client.target.product(i as SdkOpts<typeof client.target.product>)
       ),
@@ -1807,9 +1807,21 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
         z.object({
           tcin: str("Target catalog id (tcin, e.g. '1010453160')."),
           limit: onum("Trim the returned reviews to at most this many (1 or greater). Target publishes 8 anonymously and offers no paging, so this only trims."),
-          store_id: ostr("Numeric Target store id whose prices and availability the response reflects. Defaults to '3991'."),
+          store_id: ostr("Numeric Target store id whose prices the response reflects. Defaults to '3991'."),
         }),
         (i) => client.target.reviews(i as SdkOpts<typeof client.target.reviews>)
+      ),
+      tool(
+        "TARGET_AVAILABILITY",
+        "Scavio Target Availability",
+        "In-store stock for a Target product at every store near a ZIP: units available, in-store, pickup, curbside and ship-to-store status, distance, address and hours. Costs 1 credit.",
+        z.object({
+          tcin: str("Target catalog id (tcin, e.g. '85978609')."),
+          zip: str("5-digit US ZIP code to search around."),
+          radius: onum("Search radius in miles, 1-100. Defaults to 25. At most 20 stores."),
+          store_id: ostr("Return only this Target store. It must be within radius of zip."),
+        }),
+        (i) => client.target.availability(i as SdkOpts<typeof client.target.availability>)
       )
     );
   }
