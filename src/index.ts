@@ -1,13 +1,13 @@
 /**
  * Scavio tools for Composio.
  *
- * Scavio is a single Search API over 31 platforms - Google, YouTube, Amazon,
- * Walmart, eBay, Target, Home Depot, Reddit, TikTok, TikTok Shop, Instagram, X,
- * LinkedIn, Threads, Kuaishou, Zillow, Redfin, Booking.com, Airbnb, Tripadvisor,
- * Yelp, Indeed, Glassdoor, the Apple App Store, Google Play, SEC EDGAR, Companies
- * House, G2, Capterra, Google Ads Transparency and the Meta Ad Library - plus a
- * top-level extract() that reads any URL as Markdown, plain text or raw HTML.
- * This toolkit exposes every live endpoint of all of them (189 tools), plus five
+ * Scavio is a single Search API over 33 platforms - Google, YouTube, Amazon,
+ * Walmart, eBay, Target, Home Depot, HEB, Kroger, Reddit, TikTok, TikTok Shop,
+ * Instagram, X, LinkedIn, Threads, Kuaishou, Zillow, Redfin, Booking.com, Airbnb,
+ * Tripadvisor, Yelp, Indeed, Glassdoor, the Apple App Store, Google Play, SEC EDGAR,
+ * Companies House, G2, Capterra, Google Ads Transparency and the Meta Ad Library -
+ * plus a top-level extract() that reads any URL as Markdown, plain text or raw HTML.
+ * This toolkit exposes every live endpoint of all of them (194 tools), plus five
  * opt-in website tools (map, crawl, batch) behind enableCrawl. Build it
  * with `buildScavioToolkit()` and bind it to a session:
  *
@@ -23,7 +23,7 @@
  *
  * Each provider is gated by an `enable*` flag so an agent only sees the tools it
  * needs. The ten original platforms and `extract` are on by default (104 tools);
- * the 21 verticals added in 0.4.0 are OPT-IN, because registering all 189 at once
+ * the 23 verticals added in 0.4.0+ are OPT-IN, because registering all 194 at once
  * buries the handful an agent actually wants. Pass `all: true` for everything.
  */
 import {
@@ -70,6 +70,8 @@ export interface BuildScavioToolkitOptions {
   enableCapterra?: boolean;
   enableGoogleAds?: boolean;
   enableMetaAds?: boolean;
+  enableHeb?: boolean;
+  enableKroger?: boolean;
   /**
    * Website map, crawl and batch extract (five tools: MAP_WEBSITE, CRAWL_WEBSITE,
    * CRAWL_STATUS, BATCH_EXTRACT, BATCH_STATUS). Opt-in: a crawl bills per page.
@@ -209,7 +211,7 @@ const JOB_STATUS_PARAMS = z.object({
 /**
  * Build a Composio custom toolkit exposing Scavio search tools.
  *
- * Scavio is a single Search API over Google, YouTube, Amazon, Walmart, Reddit,
+ * Scavio is a single Search API over Google, YouTube, Amazon, Walmart, HEB, Kroger, Reddit,
  * TikTok, TikTok Shop, Instagram, X and LinkedIn; this toolkit covers all ten.
  * Pass to `composio.create(userId, { experimental:
  * { customToolkits: [toolkit] } })`. Agent-facing slugs are prefixed `LOCAL_SCAVIO_`.
@@ -249,6 +251,8 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
     enableCapterra = false,
     enableGoogleAds = false,
     enableMetaAds = false,
+    enableHeb = false,
+    enableKroger = false,
     enableCrawl = false,
     pollIntervalMs = JOB_POLL_INTERVAL_MS,
     all = false,
@@ -2689,6 +2693,72 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
     );
   }
 
+  // HEB - 3 endpoints, 2 credits flat.
+  if (all || enableHeb) {
+    tools.push(
+      tool(
+        "HEB_SEARCH",
+        "Scavio HEB Search",
+        "Search HEB grocery products: price in cents, sale status, unit price, size, UPC, stock, EBT/SNAP eligibility, aisle location and product URL. Costs 2 credits.",
+        z.object({
+          query: str("Search keywords (1-200 characters)."),
+          page: onum("Results page, 1-based (1-100)."),
+          page_size: onum("Results per page, 1-60. Server default 30."),
+        }),
+        (i) => client.heb.search(i as SdkOpts<typeof client.heb.search>)
+      ),
+      tool(
+        "HEB_PRODUCT",
+        "Scavio HEB Product",
+        "Full HEB product detail: nutrition facts, ingredients, description, images, similar products, coupons, EBT/SNAP eligibility and breadcrumbs. Pass product_url (from search) or slug + product_id. Costs 2 credits.",
+        z.object({
+          product_url: ostr("Full or relative product URL from heb.com. Preferred over slug + product_id."),
+          product_id: ostr("HEB product id (numeric id at the end of a product URL). Requires slug."),
+          slug: ostr("Product slug (readable part of the URL). Required with product_id."),
+        }),
+        (i) => client.heb.product(i as SdkOpts<typeof client.heb.product>)
+      ),
+      tool(
+        "HEB_STORES",
+        "Scavio HEB Stores",
+        "HEB stores near a US ZIP code or city: store number, address, phone, hours, pharmacy availability, fulfillment channels, distance and store URL. Pass zip or city. Costs 2 credits.",
+        z.object({
+          zip: ostr("5-digit US ZIP code (e.g. '78701')."),
+          city: ostr("City name (e.g. 'Austin'). Pass zip or city."),
+        }),
+        (i) => client.heb.stores(i as SdkOpts<typeof client.heb.stores>)
+      )
+    );
+  }
+
+  // Kroger - 2 endpoints, 2 credits flat. Operates Kroger, Ralphs, Fred Meyer,
+  // Harris Teeter, King Soopers, Fry's and other banners.
+  if (all || enableKroger) {
+    tools.push(
+      tool(
+        "KROGER_SEARCH",
+        "Scavio Kroger Search",
+        "Search Kroger grocery products: price in cents, promo price, n-for deals, unit price, size, UPC, stock, SNAP eligibility, dietary info, rating and category. Kroger operates Kroger, Ralphs, Fred Meyer, Harris Teeter, King Soopers and Fry's. Costs 2 credits.",
+        z.object({
+          query: str("Search keywords (1-200 characters)."),
+          page: onum("Results page, 1-based (1-100)."),
+        }),
+        (i) => client.kroger.search(i as SdkOpts<typeof client.kroger.search>)
+      ),
+      tool(
+        "KROGER_PRODUCT",
+        "Scavio Kroger Product",
+        "Full Kroger product detail by URL or UPC: nutrition facts, allergens, ingredients, nutrients with daily values, description, images, rating distribution, store aisle, stock, dietary flags, SNAP eligibility, dimensions and country of origin. Costs 2 credits.",
+        z.object({
+          product_url: ostr("Full or relative product URL from kroger.com. Preferred."),
+          upc: ostr("Kroger product UPC (from search or product URLs: /p/{slug}/{upc})."),
+          slug: ostr("Product slug for readable URL. Optional with upc."),
+        }),
+        (i) => client.kroger.product(i as SdkOpts<typeof client.kroger.product>)
+      )
+    );
+  }
+
   // extract is a CORE endpoint, not a platform: the top-level client.extract(),
   // never client.extract.extract(). It is the agent's 'read this page' primitive.
   if (all || enableExtract) {
@@ -2804,7 +2874,7 @@ export function buildScavioToolkit(options: BuildScavioToolkitOptions = {}) {
   return experimental_createToolkit("SCAVIO", {
     name: "Scavio",
     description:
-      "Real-time structured search over 31 platforms - Google (SERP, AI Mode, Maps, Shopping, Flights, Hotels, News, Trends), YouTube, Amazon, Walmart, eBay, Target, Home Depot, Reddit, TikTok, TikTok Shop, Instagram, X, LinkedIn, Threads, Kuaishou, Zillow, Redfin, Booking.com, Airbnb, Tripadvisor, Yelp, Indeed, Glassdoor, the Apple App Store, Google Play, SEC EDGAR, Companies House, G2, Capterra, Google Ads Transparency and the Meta Ad Library - plus extract, which reads any URL as Markdown, plain text or raw HTML, and website map, crawl and batch extract.",
+      "Real-time structured search over 33 platforms - Google (SERP, AI Mode, Maps, Shopping, Flights, Hotels, News, Trends), YouTube, Amazon, Walmart, eBay, Target, Home Depot, HEB, Kroger, Reddit, TikTok, TikTok Shop, Instagram, X, LinkedIn, Threads, Kuaishou, Zillow, Redfin, Booking.com, Airbnb, Tripadvisor, Yelp, Indeed, Glassdoor, the Apple App Store, Google Play, SEC EDGAR, Companies House, G2, Capterra, Google Ads Transparency and the Meta Ad Library - plus extract, which reads any URL as Markdown, plain text or raw HTML, and website map, crawl and batch extract.",
     tools,
   });
 }
