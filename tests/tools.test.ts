@@ -45,6 +45,9 @@ const NAMESPACES = [
   "capterra",
   "googleAds",
   "metaAds",
+  "heb",
+  "kroger",
+  "decathlon",
 ] as const;
 
 vi.mock("scavio", () => {
@@ -132,6 +135,9 @@ const EXPECTED_COUNTS: Record<string, number> = {
   capterra: 3,
   googleAds: 3,
   metaAds: 3,
+  heb: 3,
+  kroger: 2,
+  decathlon: 2,
   crawl: 5,
 };
 
@@ -168,6 +174,9 @@ const FLAGS: Record<string, keyof Options> = {
   capterra: "enableCapterra",
   googleAds: "enableGoogleAds",
   metaAds: "enableMetaAds",
+  heb: "enableHeb",
+  kroger: "enableKroger",
+  decathlon: "enableDecathlon",
   crawl: "enableCrawl",
 };
 
@@ -194,6 +203,9 @@ const OPT_IN = [
   "capterra",
   "googleAds",
   "metaAds",
+  "heb",
+  "kroger",
+  "decathlon",
   "crawl",
 ];
 const DEFAULT_ON = Object.keys(EXPECTED_COUNTS).filter((ns) => !OPT_IN.includes(ns));
@@ -301,6 +313,14 @@ const CREDITS: Record<string, number> = {
   LINKEDIN_POST: 1,
   LINKEDIN_POST_COMMENTS: 10,
   MAP_WEBSITE: 1,
+  // HEB, Kroger and Decathlon: 2 credits flat.
+  HEB_SEARCH: 2,
+  HEB_PRODUCT: 2,
+  HEB_STORES: 2,
+  KROGER_SEARCH: 2,
+  KROGER_PRODUCT: 2,
+  DECATHLON_SEARCH: 2,
+  DECATHLON_PRODUCT: 2,
 };
 
 /** Platforms added in 0.4.0 whose whole surface is one flat per-call price. */
@@ -395,7 +415,7 @@ beforeEach(() => {
 describe("coverage", () => {
   it("registers every live Scavio endpoint exactly once", () => {
     const slugs = slugsOf(build({ all: true }));
-    expect(slugs.length).toBe(195);
+    expect(slugs.length).toBe(202);
     expect(new Set(slugs).size).toBe(slugs.length);
   });
 
@@ -403,7 +423,7 @@ describe("coverage", () => {
     const actual: Record<string, number> = {};
     for (const ns of Object.keys(EXPECTED_COUNTS)) actual[ns] = only(ns).tools.length;
     expect(actual).toEqual(EXPECTED_COUNTS);
-    expect(Object.values(actual).reduce((a, b) => a + b, 0)).toBe(195);
+    expect(Object.values(actual).reduce((a, b) => a + b, 0)).toBe(202);
   });
 
   it("covers all 31 platforms", () => {
@@ -663,6 +683,12 @@ describe("wire quirks", () => {
     // Only search and category carry a domain, and only they can cost 2 credits.
     expect(shapeOf(find("walmart", "WALMART_CATEGORY"))).toContain("domain");
     expect(shapeOf(find("walmart", "WALMART_REVIEWS"))).not.toContain("domain");
+  });
+
+  it("HEB search and product take store_id", () => {
+    const heb = (slug: string) => (build({ all: true }).tools as Tool[]).find((t) => t.slug === slug)!;
+    expect(shapeOf(heb("HEB_SEARCH"))).toEqual(["query", "page", "page_size", "store_id"]);
+    expect(shapeOf(heb("HEB_PRODUCT"))).toEqual(["product_url", "product_id", "slug", "store_id"]);
   });
 
   it("Instagram search takes `keyword`", () => {

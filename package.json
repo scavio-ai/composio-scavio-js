@@ -1,6 +1,6 @@
 {
   "name": "composio-scavio",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "description": "Scavio real-time search tools for Composio: 199 tools over 33 platforms (Google, YouTube, Amazon, Walmart, eBay, Target, Home Depot, HEB, Kroger, Reddit, TikTok, TikTok Shop, Instagram, X, LinkedIn, Threads, Kuaishou, Zillow, Redfin, Booking.com, Airbnb, Tripadvisor, Yelp, Indeed, Glassdoor, App Store, Google Play, SEC EDGAR, Companies House, G2, Capterra, Google Ads, Meta Ad Library) plus extract and website map, crawl and batch extract",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -65,7 +65,7 @@
   },
   "dependencies": {
     "@composio/core": "^0.13.1",
-    "scavio": "^0.28.0",
+    "scavio": "^0.28.1",
     "zod": "^3.25.0"
   },
   "devDependencies": {
