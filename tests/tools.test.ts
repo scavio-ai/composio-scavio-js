@@ -333,7 +333,7 @@ const FLAT_PLATFORM_CREDITS: Record<string, number> = {
   tripadvisor: 2,
   indeed: 2,
   airbnb: 1,
-  glassdoor: 1,
+  glassdoor: 2,
   yelp: 2,
   appStore: 1,
   googlePlay: 2,

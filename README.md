@@ -218,8 +218,8 @@ Every tool states its cost in its description. Most endpoints cost 1 credit.
 | Reddit (all 12) | 1 |
 | TikTok (all 11), TikTok Shop (all 8) | 1 |
 | X (all 11) | 1 |
-| eBay, Target, Zillow, Booking.com, Airbnb, Glassdoor, App Store, SEC EDGAR, Redfin, Companies House, Google Ads, Meta Ads | 1 |
-| Home Depot, Tripadvisor, Indeed, Yelp, Google Play, Capterra | 2 |
+| eBay, Target, Zillow, Booking.com, Airbnb, App Store, SEC EDGAR, Redfin, Companies House, Google Ads, Meta Ads | 1 |
+| Home Depot, Tripadvisor, Indeed, Yelp, Google Play, Capterra, Glassdoor | 2 |
 | G2 | 5 |
 | YouTube | 1, except search 2, shorts 2, streams 3, transcript 5 |
 | Instagram | 10, except post 8, comment replies 8, user posts 2 |
